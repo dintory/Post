@@ -9,8 +9,29 @@ import settingsRoutes from "./routes/settings";
 import youtubeRoutes from "./routes/youtube";
 import automationRoutes from "./routes/automation";
 import { ensureBackgroundVideo } from "./utils/ensureBackground";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 dotenv.config();
+
+// Clean up temp directory on startup (free disk space / memory)
+const tempDir = path.join(os.tmpdir(), "commissioner");
+try {
+  if (fs.existsSync(tempDir)) {
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      try {
+        fs.unlinkSync(path.join(tempDir, file));
+      } catch {}
+    }
+    console.log(
+      `[Startup] Cleaned ${files.length} temp file(s) from ${tempDir}`,
+    );
+  }
+} catch (err) {
+  console.warn("[Startup] Could not clean temp dir:", err);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;

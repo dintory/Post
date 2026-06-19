@@ -21,6 +21,30 @@ import {
 } from "./ffmpegService";
 import type { VideoGenerationJob } from "../types/video";
 
+// ─── Concurrency limiter: max 1 pipeline at a time (512MB RAM limit) ──────
+const MAX_CONCURRENT_PIPELINES = 1;
+let activePipelines = 0;
+const pipelineQueue: (() => void)[] = [];
+
+const acquirePipelineSlot = async (): Promise<void> => {
+  if (activePipelines < MAX_CONCURRENT_PIPELINES) {
+    activePipelines++;
+    return;
+  }
+  return new Promise((resolve) => {
+    pipelineQueue.push(() => {
+      activePipelines++;
+      resolve();
+    });
+  });
+};
+
+const releasePipelineSlot = (): void => {
+  activePipelines--;
+  const next = pipelineQueue.shift();
+  if (next) next();
+};
+
 export type {
   VideoFormat,
   VideoGenerationJob,
@@ -74,6 +98,7 @@ export const runVideoPipeline = async (
 
   // ─── Run async — don't await, caller gets jobId immediately ─────────────
   (async () => {
+    await acquirePipelineSlot();
     const tempDir = getTempDir();
     const rawMp3Path = path.join(tempDir, `${recordId}_voiceover_raw.mp3`);
     const mp3Path = path.join(tempDir, `${recordId}_voiceover.mp3`);
@@ -458,7 +483,7 @@ export const runVideoPipeline = async (
       console.error(`[Pipeline] ❌ Error:`, pipelineError);
 
       // Best-effort cleanup of any temp files
-      cleanupFiles(mp3Path, bgTrimPath, finalPath);
+      cleanupFiles(mp3Path, bgTrimPath, finalPath, rawMp3Path);
 
       await db
         .from("video_queue")
@@ -495,6 +520,8 @@ export const runVideoPipeline = async (
       } catch (notifyErr) {
         console.error("[Pipeline] Discord notification error:", notifyErr);
       }
+    } finally {
+      releasePipelineSlot();
     }
   })();
 

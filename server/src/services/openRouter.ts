@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const CHAT_TIMEOUT_MS = 120_000; // 2 minutes
+const IMAGE_TIMEOUT_MS = 180_000; // 3 minutes
 
 export interface OpenRouterMessage {
   role: "system" | "user" | "assistant";
@@ -65,6 +67,25 @@ export interface OpenRouterImageRequest extends OpenRouterChatRequest {
   image_config?: OpenRouterImageConfig;
 }
 
+const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export const chatCompletion = async (
   request: OpenRouterChatRequest,
 ): Promise<OpenRouterChatResponse> => {
@@ -76,16 +97,20 @@ export const chatCompletion = async (
     );
   }
 
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
-      "X-Title": "Commissioner",
+  const response = await fetchWithTimeout(
+    OPENROUTER_API_URL,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
+        "X-Title": "Commissioner",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+    CHAT_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -106,16 +131,20 @@ export const imageGeneration = async (
     );
   }
 
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
-      "X-Title": "Commissioner",
+  const response = await fetchWithTimeout(
+    OPENROUTER_API_URL,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
+        "X-Title": "Commissioner",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+    IMAGE_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
     const errorBody = await response.text();

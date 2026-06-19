@@ -66,13 +66,15 @@ export const uploadVideo = async (
   jobId: string,
 ): Promise<string> => {
   const fs = await import("fs");
-  const videoBuffer = fs.readFileSync(filePath);
   const key = `videos/${jobId}.mp4`;
+
+  // Stream the file to avoid loading the whole thing into memory
+  const readStream = fs.createReadStream(filePath);
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
     Key: key,
-    Body: videoBuffer,
+    Body: readStream,
     ContentType: "video/mp4",
   });
 
@@ -87,5 +89,5 @@ export const uploadVideo = async (
  * Return the public R2 URL for the default background video.
  */
 export const getBackgroundUrl = (): string => {
-  return `${R2_PUBLIC_URL}/backgrounds/minecraft-parkour.mp4`;
+  return `${R2_PUBLIC_URL}/backgrounds/minecraft-parkour.mp4`; // Static
 };
