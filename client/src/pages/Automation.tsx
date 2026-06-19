@@ -189,7 +189,7 @@ export function Automation() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden border-b border-zinc-800/50"
+                className="overflow-visible border-b border-zinc-800/50"
               >
                 <div className="p-4 bg-zinc-800/20 flex flex-col sm:flex-row items-start sm:items-end gap-4">
                   <div className="w-full sm:w-44">
