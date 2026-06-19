@@ -12,6 +12,7 @@ import {
   SunMoon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dropdown } from "@/components/ui/dropdown";
 
 interface Schedule {
   id: string;
@@ -191,63 +192,51 @@ export function Automation() {
                 className="overflow-hidden border-b border-zinc-800/50"
               >
                 <div className="p-4 bg-zinc-800/20 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                  <div className="w-full sm:w-48">
+                  <div className="w-full sm:w-44">
                     <label className="block text-xs text-zinc-500 mb-1.5">
                       Day of Week
                     </label>
-                    <select
-                      value={newDay}
-                      onChange={(e) => setNewDay(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
-                    >
-                      {DAY_NAMES.map((name, i) => (
-                        <option key={i} value={i}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
+                    <Dropdown
+                      options={DAY_NAMES.map((name, i) => ({
+                        value: String(i),
+                        label: name,
+                      }))}
+                      value={String(newDay)}
+                      onChange={(v) => setNewDay(Number(v))}
+                    />
                   </div>
-                  <div className="w-full sm:w-56">
+                  <div className="w-full sm:w-44">
                     <label className="block text-xs text-zinc-500 mb-1.5">
                       Time (UTC)
                     </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={newTime.split(":")[0]}
-                        onChange={(e) =>
-                          setNewTime(
-                            `${e.target.value}:${newTime.split(":")[1]}`,
-                          )
-                        }
-                        className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
-                      >
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <option key={i} value={String(i).padStart(2, "0")}>
-                            {String(i).padStart(2, "0")}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-zinc-500 self-center text-sm font-medium">
+                    <div className="flex gap-1 items-start">
+                      <div className="flex-1">
+                        <Dropdown
+                          options={Array.from({ length: 24 }, (_, i) => ({
+                            value: String(i).padStart(2, "0"),
+                            label: String(i).padStart(2, "0"),
+                          }))}
+                          value={newTime.split(":")[0]}
+                          onChange={(v) =>
+                            setNewTime(`${v}:${newTime.split(":")[1]}`)
+                          }
+                        />
+                      </div>
+                      <span className="text-zinc-500 pt-3 text-sm font-medium px-0.5">
                         :
                       </span>
-                      <select
-                        value={newTime.split(":")[1]}
-                        onChange={(e) =>
-                          setNewTime(
-                            `${newTime.split(":")[0]}:${e.target.value}`,
-                          )
-                        }
-                        className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
-                      >
-                        {Array.from({ length: 12 }, (_, i) => (
-                          <option
-                            key={i}
-                            value={String(i * 5).padStart(2, "0")}
-                          >
-                            {String(i * 5).padStart(2, "0")}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex-1">
+                        <Dropdown
+                          options={Array.from({ length: 12 }, (_, i) => ({
+                            value: String(i * 5).padStart(2, "0"),
+                            label: String(i * 5).padStart(2, "0"),
+                          }))}
+                          value={newTime.split(":")[1]}
+                          onChange={(v) =>
+                            setNewTime(`${newTime.split(":")[0]}:${v}`)
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto">
