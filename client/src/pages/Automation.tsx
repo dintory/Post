@@ -10,6 +10,7 @@ import {
   Globe,
   Sun,
   SunMoon,
+  Hash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -19,6 +20,7 @@ interface Schedule {
   day_of_week: number;
   time_utc: string;
   enabled: boolean;
+  label: string;
   last_run_at: string | null;
   created_at: string;
 }
@@ -35,22 +37,28 @@ const DAY_NAMES = [
 
 const DAY_ICONS = [Sun, SunMoon, Sun, SunMoon, Sun, SunMoon, Globe];
 
+const CONTENT_TYPES = [
+  { value: "Reddit Short", label: "Reddit Short" },
+  { value: "POV Short", label: "POV Short" },
+  { value: "Trending Clip", label: "Trending Clip" },
+  { value: "AI Voiceover", label: "AI Voiceover" },
+];
+
 function formatTime(timeUtc: string): string {
+  // UTC → local time for display
   const [h, m] = timeUtc.split(":").map(Number);
-  // Convert UTC time to local time for display
   const now = new Date();
   const local = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), h, m),
   );
-  const localH = local.getHours();
-  const localM = local.getMinutes();
-  const period = localH >= 12 ? "PM" : "AM";
-  const hour = localH % 12 || 12;
-  return `${hour}:${String(localM).padStart(2, "0")} ${period}`;
+  const hh = local.getHours();
+  const mm = local.getMinutes();
+  const period = hh >= 12 ? "PM" : "AM";
+  const hour = hh % 12 || 12;
+  return `${hour}:${String(mm).padStart(2, "0")} ${period}`;
 }
 
 function localToUtc(timeLocal: string): string {
-  // Convert local time (HH:MM) to UTC (HH:MM)
   const [h, m] = timeLocal.split(":").map(Number);
   const now = new Date();
   const local = new Date(
@@ -78,6 +86,7 @@ export function Automation() {
   const [showForm, setShowForm] = useState(false);
   const [newDay, setNewDay] = useState(1);
   const [newTime, setNewTime] = useState("09:00");
+  const [newLabel, setNewLabel] = useState("Reddit Short");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -117,6 +126,7 @@ export function Automation() {
           day_of_week: newDay,
           time_utc: utcTime,
           enabled: true,
+          label: newLabel,
         }),
         credentials: "include",
       });
@@ -142,6 +152,7 @@ export function Automation() {
           day_of_week: schedule.day_of_week,
           time_utc: schedule.time_utc,
           enabled: !schedule.enabled,
+          label: schedule.label,
         }),
         credentials: "include",
       });
@@ -160,9 +171,7 @@ export function Automation() {
     try {
       const res = await fetch(
         `/api/automation/test-trigger/${id}?secret=yX8FH0C91y`,
-        {
-          method: "POST",
-        },
+        { method: "POST" },
       );
       if (!res.ok) throw new Error("Test trigger failed");
       showToast("🧪 Test webhook sent!");
@@ -189,17 +198,15 @@ export function Automation() {
   return (
     <div className="pt-24 pb-12 min-h-screen bg-[#0A0A0A]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">Automation</h1>
             <p className="text-zinc-400 mt-1">
-              Schedule videos to publish automatically
+              Schedule content to publish automatically
             </p>
           </div>
         </div>
 
-        {/* Schedules Section */}
         <div className="bg-zinc-900/50 rounded-xl border border-zinc-800/50">
           <div className="flex items-center justify-between p-5 border-b border-zinc-800/50">
             <div>
@@ -207,7 +214,7 @@ export function Automation() {
                 Posting Schedule
               </h2>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Set days and times for automatic video publishing
+                Set days and times for automatic publishing
               </p>
             </div>
             <button
@@ -219,7 +226,6 @@ export function Automation() {
             </button>
           </div>
 
-          {/* Add form */}
           <AnimatePresence>
             {showForm && (
               <motion.div
@@ -229,9 +235,9 @@ export function Automation() {
                 className="overflow-visible border-b border-zinc-800/50"
               >
                 <div className="p-4 bg-zinc-800/20 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                  <div className="w-full sm:w-44">
+                  <div className="w-full sm:w-40">
                     <label className="block text-xs text-zinc-500 mb-1.5">
-                      Day of Week
+                      Day
                     </label>
                     <Dropdown
                       options={DAY_NAMES.map((name, i) => ({
@@ -242,9 +248,9 @@ export function Automation() {
                       onChange={(v) => setNewDay(Number(v))}
                     />
                   </div>
-                  <div className="w-full sm:w-44">
+                  <div className="w-full sm:w-40">
                     <label className="block text-xs text-zinc-500 mb-1.5">
-                      Time (UTC)
+                      Time
                     </label>
                     <div className="flex gap-1 items-start">
                       <div className="flex-1">
@@ -276,6 +282,16 @@ export function Automation() {
                       </div>
                     </div>
                   </div>
+                  <div className="w-full sm:w-44">
+                    <label className="block text-xs text-zinc-500 mb-1.5">
+                      Content
+                    </label>
+                    <Dropdown
+                      options={CONTENT_TYPES}
+                      value={newLabel}
+                      onChange={(v) => setNewLabel(v)}
+                    />
+                  </div>
                   <div className="flex gap-2 w-full sm:w-auto">
                     <Button
                       size="sm"
@@ -299,7 +315,6 @@ export function Automation() {
             )}
           </AnimatePresence>
 
-          {/* Schedule list */}
           {isLoading ? (
             <div className="p-12 text-center">
               <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -312,7 +327,7 @@ export function Automation() {
                 No schedules yet
               </p>
               <p className="text-xs text-zinc-600 mt-1">
-                Add a schedule to auto-publish videos on specific days.
+                Add a schedule to auto-publish content on specific days.
               </p>
             </div>
           ) : (
@@ -324,22 +339,28 @@ export function Automation() {
                     key={schedule.id}
                     className="flex items-center justify-between px-5 py-4 hover:bg-zinc-800/20 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center ${schedule.enabled ? "bg-emerald-500/20" : "bg-zinc-800"}`}
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${schedule.enabled ? "bg-emerald-500/20" : "bg-zinc-800"}`}
                       >
                         <DayIcon
                           className={`w-5 h-5 ${schedule.enabled ? "text-emerald-400" : "text-zinc-500"}`}
                         />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium text-white">
                             {DAY_NAMES[schedule.day_of_week]}
                           </p>
                           <span className="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-300">
                             {formatTime(schedule.time_utc)}
                           </span>
+                          {schedule.label && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400">
+                              <Hash className="w-3 h-3" />
+                              {schedule.label}
+                            </span>
+                          )}
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
                               schedule.enabled
@@ -356,12 +377,10 @@ export function Automation() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={() => handleToggle(schedule)}
-                        className={`relative w-10 h-5 rounded-full transition-colors ${
-                          schedule.enabled ? "bg-emerald-500" : "bg-zinc-700"
-                        }`}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${schedule.enabled ? "bg-emerald-500" : "bg-zinc-700"}`}
                         title={schedule.enabled ? "Pause" : "Activate"}
                       >
                         <div
@@ -394,20 +413,18 @@ export function Automation() {
           )}
         </div>
 
-        {/* External cron info */}
         <div className="mt-6 p-4 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
           <p className="text-xs text-zinc-500 flex items-start gap-2">
             <Play className="w-3.5 h-3.5 text-zinc-600 mt-0.5 shrink-0" />
             <span>
-              Click the <strong>Play</strong> button on any schedule to test it
-              instantly. The cron service checks every 15 minutes for automatic
-              firing. Times shown in both UTC and your local timezone.
+              Click <strong>Play</strong> to test a schedule instantly. The cron
+              service checks every minute for schedules within 5 minutes of
+              their set time. All times are your local timezone.
             </span>
           </p>
         </div>
       </div>
 
-      {/* Toast */}
       <AnimatePresence>
         {toast && (
           <motion.div

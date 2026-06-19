@@ -10,12 +10,6 @@ const router = Router();
 
 // ─── Heartbeat check ────────────────────────────────────────────────────────
 
-/**
- * GET/POST /api/automation/check
- * Called by an external cron service every 15 minutes.
- * Requires x-automation-secret header or ?secret= query param.
- * Fires schedules that are due and sends a single Discord notification.
- */
 router.get("/check", handleCheck);
 router.post("/check", handleCheck);
 
@@ -33,7 +27,6 @@ async function handleCheck(req: any, res: any) {
     const currentDay = now.getUTCDay();
     const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
 
-    // Fetch all enabled schedules
     const { data: schedules, error } = await supabase
       .from("automation_schedules")
       .select("*")
@@ -45,19 +38,17 @@ async function handleCheck(req: any, res: any) {
     }
 
     let triggered = 0;
-    const notifedUsers = new Set<string>();
+    const notifiedUsers = new Set<string>();
 
     for (const schedule of schedules || []) {
-      // Check day of week
       if (schedule.day_of_week !== currentDay) continue;
 
-      // Parse scheduled time
       const [h, m] = schedule.time_utc.split(":").map(Number);
       const scheduledMinutes = h * 60 + m;
+      const diff = Math.abs(currentMinutes - scheduledMinutes);
 
-      // Match if the scheduled time has passed today (any time in the past)
-      // This catches schedules even if the cron fires late.
-      if (currentMinutes < scheduledMinutes) continue;
+      // ±5 minute window (cron fires every 1 minute)
+      if (diff > 5) continue;
 
       // Prevent double-fire within 20 hours
       if (schedule.last_run_at) {
@@ -65,7 +56,6 @@ async function handleCheck(req: any, res: any) {
         if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
       }
 
-      // Update last_run_at
       await supabase
         .from("automation_schedules")
         .update({
@@ -74,13 +64,12 @@ async function handleCheck(req: any, res: any) {
         })
         .eq("id", schedule.id);
 
-      // Collect unique users to notify (one webhook per user per cron tick)
-      notifedUsers.add(schedule.user_id);
+      notifiedUsers.add(schedule.user_id);
       triggered++;
     }
 
-    // Send one notification per user with schedules that just fired
-    for (const userId of notifedUsers) {
+    // Send one notification per user
+    for (const userId of notifiedUsers) {
       const webhookUrl = await getUserWebhookUrl(supabase, userId);
       if (!webhookUrl) continue;
 
@@ -93,13 +82,13 @@ async function handleCheck(req: any, res: any) {
 
     if (triggered > 0) {
       console.log(
-        `[Automation] Fired ${triggered} schedule(s) for ${notifedUsers.size} user(s)`,
+        `[Automation] Fired ${triggered} schedule(s) for ${notifiedUsers.size} user(s)`,
       );
     }
 
     return res
       .status(200)
-      .json({ ok: true, triggered, users_notified: notifedUsers.size });
+      .json({ ok: true, triggered, users_notified: notifiedUsers.size });
   } catch (err: any) {
     console.error("[Automation] Check error:", err);
     return res.status(500).json({ error: err.message });
@@ -108,28 +97,23 @@ async function handleCheck(req: any, res: any) {
 
 // ─── Test webhook ─────────────────────────────────────────────────────────────
 
-/**
- * POST /api/automation/test-webhook
- * Send a test Discord webhook to the authenticated user.
- */
 router.post("/test-webhook", requireAuth, async (req: any, res) => {
   try {
     const supabase = getSupabaseClient(req.token);
     const webhookUrl = await getUserWebhookUrl(supabase, req.user.id);
-
     if (!webhookUrl) {
-      return res.status(404).json({
-        error: "No Discord webhook configured. Save one in Settings first.",
-      });
+      return res
+        .status(404)
+        .json({
+          error: "No Discord webhook configured. Save one in Settings first.",
+        });
     }
-
     await sendDiscordAlert(webhookUrl, {
       title: "🔔 Test Notification",
       message:
         "This is a test from Commissioner. Your webhook is working correctly!",
       type: "success",
     });
-
     return res.json({ success: true, message: "Test webhook sent!" });
   } catch (err: any) {
     console.error("[Automation] Test webhook error:", err);
@@ -139,11 +123,6 @@ router.post("/test-webhook", requireAuth, async (req: any, res) => {
 
 // ─── Manual test trigger ───────────────────────────────────────────────────────
 
-/**
- * POST /api/automation/test-trigger/:scheduleId
- * Bypass all schedule checks and immediately fire the webhook for testing.
- * Does not update last_run_at.
- */
 router.post("/test-trigger/:scheduleId", async (req: any, res) => {
   const secret = req.headers["x-automation-secret"] || req.query.secret;
   if (!secret || secret !== process.env.AUTOMATION_SECRET) {
@@ -156,7 +135,6 @@ router.post("/test-trigger/:scheduleId", async (req: any, res) => {
 
   try {
     const supabase = getSupabaseClient();
-
     const { data: schedule, error } = await supabase
       .from("automation_schedules")
       .select("*")
@@ -167,15 +145,13 @@ router.post("/test-trigger/:scheduleId", async (req: any, res) => {
       return res.status(404).json({ error: "Schedule not found" });
     }
 
-    // Fire the webhook asynchronously (fire-and-forget)
     sendDiscordAlert(await getUserWebhookUrl(supabase, schedule.user_id), {
       title: "🧪 Test Trigger",
-      message: `Manual test of schedule for ${schedule.time_utc} UTC on day ${schedule.day_of_week}.`,
+      message: `Manual test of schedule "${schedule.label || "Untitled"}" (${schedule.time_utc} UTC, day ${schedule.day_of_week}).`,
       type: "success",
     }).catch(() => {});
 
     console.log(`[Automation] Test trigger fired for schedule ${scheduleId}`);
-
     return res.json({ success: true, message: "Test trigger fired!" });
   } catch (err: any) {
     console.error("[Automation] Test trigger error:", err);
@@ -203,18 +179,12 @@ router.get("/schedules", requireAuth, async (req: any, res) => {
 });
 
 router.post("/schedules", requireAuth, async (req: any, res) => {
-  const { id, day_of_week, time_utc, enabled } = req.body;
+  const { id, day_of_week, time_utc, enabled, label } = req.body;
 
   if (day_of_week === undefined || time_utc === undefined) {
     return res
       .status(400)
       .json({ error: "day_of_week and time_utc are required" });
-  }
-  if (day_of_week < 0 || day_of_week > 6) {
-    return res.status(400).json({ error: "day_of_week must be 0-6" });
-  }
-  if (!/^\d{2}:\d{2}$/.test(time_utc)) {
-    return res.status(400).json({ error: "time_utc must be in HH:mm format" });
   }
 
   try {
@@ -228,6 +198,7 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
           day_of_week,
           time_utc,
           enabled: enabled !== undefined ? enabled : true,
+          label: label || "",
           updated_at: now,
         })
         .eq("id", id)
@@ -245,6 +216,7 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
           day_of_week,
           time_utc,
           enabled: enabled !== undefined ? enabled : true,
+          label: label || "",
         })
         .select()
         .single();
