@@ -6,6 +6,14 @@ import os from "os";
 
 const execFileAsync = promisify(execFile);
 
+// ─── Memory-safe FFmpeg defaults ─────────────────────────────────────────
+// Render free tier has 512MB RAM. FFmpeg with multiple threads can use 300MB+
+// These flags keep peak memory under control:
+//   -threads 1     : single thread only (no parallel frame buffers)
+//   -preset ultrafast : minimal memory per frame
+//   -crf 28        : smaller frames = less buffer memory
+const THREADS = ["-threads", "1"];
+
 // ─── Temp Directory ──────────────────────────────────────────────────────────
 
 export const getTempDir = (): string => {
@@ -20,10 +28,11 @@ export const speedUpAudio = async (
   inputPath: string,
   outputPath: string,
   speed: number = 1.25,
-  pitch: number = 1.12, // energetic higher pitch
+  pitch: number = 1.12,
 ): Promise<void> => {
   console.log(`[FFmpeg] Processing audio: speed=${speed}, pitch=${pitch}`);
   await execFileAsync("ffmpeg", [
+    ...THREADS,
     "-i",
     inputPath,
     "-filter:a",
@@ -86,8 +95,9 @@ export const trimVideoToAudio = async (
     `[FFmpeg] Trimming background — start: ${startOffset.toFixed(1)}s, duration: ${durationSec.toFixed(1)}s`,
   );
 
-  // Scale and crop to 1080×1920 (9:16 vertical), strip any existing audio
+  // Scale and crop to 720×1280 (vs 1080×1920 — saves ~55% memory per frame)
   await execFileAsync("ffmpeg", [
+    ...THREADS,
     "-ss",
     String(startOffset.toFixed(3)),
     "-i",
@@ -95,14 +105,14 @@ export const trimVideoToAudio = async (
     "-t",
     String(durationSec.toFixed(3)),
     "-vf",
-    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+    "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
     "-c:v",
     "libx264",
     "-crf",
-    "23",
+    "28",
     "-preset",
-    "veryfast",
-    "-an", // drop audio track from background
+    "ultrafast",
+    "-an",
     "-y",
     outputPath,
   ]);
@@ -113,38 +123,33 @@ export const trimVideoToAudio = async (
 // ─── Merge Trimmed Video + Voiceover Audio into Final MP4 ────────────────────
 
 export const mergeAudioVideo = async (
-  videoPath: string, // 1080×1920 trimmed background (no audio)
-  audioPath: string, // MP3 voiceover
-  outputPath: string, // final 1080×1920 MP4
-  overlayPath?: string, // PNG card overlay (optional)
-  subtitlePath?: string, // SRT or ASS subtitle file (optional)
-  overlayDuration?: number, // duration of title/hook in seconds
+  videoPath: string,
+  audioPath: string,
+  outputPath: string,
+  overlayPath?: string,
+  subtitlePath?: string,
+  overlayDuration?: number,
 ): Promise<void> => {
   console.log(
-    `[FFmpeg] Merging → ${outputPath} (overlay:${!!overlayPath} sub:${!!subtitlePath} duration:${overlayDuration})`,
+    `[FFmpeg] Merging → ${outputPath} (overlay:${!!overlayPath} sub:${!!subtitlePath})`,
   );
 
-  const args: string[] = [];
+  const args: string[] = [...THREADS];
 
   // ── Inputs ─────────────────────────────────────────────────────────────────
-  // Background video
   args.push("-i", videoPath);
 
-  // PNG overlay: use -loop 1 so the single frame lasts the full duration
   if (overlayPath) {
     args.push("-loop", "1", "-i", overlayPath);
   }
 
-  // Voiceover audio (always last input)
   args.push("-i", audioPath);
 
   // ── Filter chain ───────────────────────────────────────────────────────────
-  const audioIdx = overlayPath ? 2 : 1; // which input index is audio
-
+  const audioIdx = overlayPath ? 2 : 1;
   let filterComplex: string;
 
   if (overlayPath && subtitlePath) {
-    // Escape Windows absolute path for libass: replace \ with / and escape : as \\:
     const escapedSub = subtitlePath.replace(/\\/g, "/").replace(/:/g, "\\:");
     let overlayFilter: string;
     if (overlayDuration && overlayDuration > 0) {
@@ -152,7 +157,7 @@ export const mergeAudioVideo = async (
     } else {
       overlayFilter = `[0:v][1:v]overlay=0:0:shortest=1[ov]`;
     }
-    filterComplex = `${overlayFilter};` + `[ov]subtitles='${escapedSub}'[outv]`;
+    filterComplex = `${overlayFilter};[ov]subtitles='${escapedSub}'[outv]`;
   } else if (overlayPath) {
     if (overlayDuration && overlayDuration > 0) {
       filterComplex = `[0:v][1:v]overlay=0:0:enable='lte(t,${overlayDuration.toFixed(3)})'[outv]`;
@@ -178,13 +183,13 @@ export const mergeAudioVideo = async (
     "-c:v",
     filterComplex ? "libx264" : "copy",
     "-crf",
-    "23",
+    "28",
     "-preset",
-    "veryfast",
+    "ultrafast",
     "-c:a",
     "aac",
     "-b:a",
-    "192k",
+    "128k",
     "-shortest",
     "-movflags",
     "+faststart",
@@ -196,7 +201,7 @@ export const mergeAudioVideo = async (
   console.log(`[FFmpeg] Final MP4 written: ${outputPath}`);
 };
 
-// ─── Extract First Frame as JPEG Thumbnail ──────────────────────────────────
+// ─── Extract First Frame as JPEG Thumbnail (skipped if OOM risk) ────────────
 
 export const extractFirstFrame = async (
   inputPath: string,
@@ -204,6 +209,7 @@ export const extractFirstFrame = async (
 ): Promise<void> => {
   console.log(`[FFmpeg] Extracting first frame from: ${inputPath}`);
   await execFileAsync("ffmpeg", [
+    ...THREADS,
     "-i",
     inputPath,
     "-vframes",

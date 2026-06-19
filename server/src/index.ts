@@ -85,6 +85,23 @@ app.get("/api/health", (req, res) => {
 
 // Start Server (wait for background video before accepting connections)
 async function start() {
+  // Log memory at startup for debugging
+  const memMB = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1);
+  const rssMB = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+  console.log(
+    `[Startup] Memory: ${memMB}MB heap / ${rssMB}MB RSS (limit: ${process.env.NODE_OPTIONS || "none"})`,
+  );
+
+  // Periodically log memory so we can track leaks
+  setInterval(() => {
+    const m = process.memoryUsage();
+    const heap = (m.heapUsed / 1024 / 1024).toFixed(1);
+    const rss = (m.rss / 1024 / 1024).toFixed(1);
+    if (parseFloat(heap) > 300 || parseFloat(rss) > 400) {
+      console.warn(`[Memory] WARN: ${heap}MB heap / ${rss}MB RSS`);
+    }
+  }, 30_000);
+
   await ensureBackgroundVideo();
   app.listen(PORT, () => {
     const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
