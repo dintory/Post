@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/vercel/vercel/main/packages/vercel-json/schema.json",
+  "rewrites": [
+    {
+      "source": "/auth/:path*",
+      "destination": "https://post-rtc8.onrender.com/auth/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://post-rtc8.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
