@@ -43,9 +43,8 @@ export const uploadToR2 = async (
 
   await r2Client.send(command);
 
-  // Return the public/presigned or access URL
-  // The standard R2 access URL (if public) or standard endpoint URL
-  return `${endpoint}/${bucketName}/${key}`;
+  // Return the public R2.dev URL (bucket must have public access enabled)
+  return `${R2_PUBLIC_URL}/${key}`;
 };
 
 export const deleteFromR2 = async (key: string) => {
