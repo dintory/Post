@@ -25,7 +25,9 @@ async function handleCheck(req: any, res: any) {
     const supabase = getSupabaseClient();
     const now = new Date();
     const currentDay = now.getUTCDay();
+    const currentMonthDay = now.getUTCDate();
     const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const currentHour = now.getUTCHours();
 
     const { data: schedules, error } = await supabase
       .from("automation_schedules")
@@ -38,20 +40,54 @@ async function handleCheck(req: any, res: any) {
     }
 
     let triggered = 0;
-    const notifiedUsers = new Set<string>();
+    const notifiedUsers = new Map<string, string[]>();
 
     for (const schedule of schedules || []) {
-      if (schedule.day_of_week !== currentDay) continue;
+      const type = schedule.schedule_type || "weekly";
+      let shouldFire = false;
 
-      const [h, m] = schedule.time_utc.split(":").map(Number);
-      const scheduledMinutes = h * 60 + m;
-      const diff = Math.abs(currentMinutes - scheduledMinutes);
+      if (type === "weekly") {
+        // Match day of week + time within ±5 min
+        if (schedule.day_of_week !== currentDay) continue;
+        const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
+        const scheduledMinutes = h * 60 + m;
+        const diff = Math.abs(currentMinutes - scheduledMinutes);
+        if (diff > 5) continue;
+        shouldFire = true;
+      } else if (type === "daily") {
+        // Match time within ±5 min every day
+        const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
+        const scheduledMinutes = h * 60 + m;
+        const diff = Math.abs(currentMinutes - scheduledMinutes);
+        if (diff > 5) continue;
+        shouldFire = true;
+      } else if (type === "interval") {
+        // Every N hours from last run
+        const intervalHours = schedule.interval_hours || 6;
+        if (!schedule.last_run_at) {
+          shouldFire = true; // Never run before, fire now
+        } else {
+          const lastRun = new Date(schedule.last_run_at).getTime();
+          const hoursSinceLastRun =
+            (now.getTime() - lastRun) / (1000 * 60 * 60);
+          if (hoursSinceLastRun >= intervalHours) {
+            shouldFire = true;
+          }
+        }
+      } else if (type === "monthly") {
+        // Match specific day of month + time within ±5 min
+        if (schedule.month_day !== currentMonthDay) continue;
+        const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
+        const scheduledMinutes = h * 60 + m;
+        const diff = Math.abs(currentMinutes - scheduledMinutes);
+        if (diff > 5) continue;
+        shouldFire = true;
+      }
 
-      // ±5 minute window (cron fires every 1 minute)
-      if (diff > 5) continue;
+      if (!shouldFire) continue;
 
-      // Prevent double-fire within 20 hours
-      if (schedule.last_run_at) {
+      // Prevent double-fire within the last 20 hours (for non-interval types)
+      if (type !== "interval" && schedule.last_run_at) {
         const lastRun = new Date(schedule.last_run_at).getTime();
         if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
       }
@@ -64,18 +100,21 @@ async function handleCheck(req: any, res: any) {
         })
         .eq("id", schedule.id);
 
-      notifiedUsers.add(schedule.user_id);
+      const existing = notifiedUsers.get(schedule.user_id) || [];
+      existing.push(schedule.label || type);
+      notifiedUsers.set(schedule.user_id, existing);
       triggered++;
     }
 
     // Send one notification per user
-    for (const userId of notifiedUsers) {
+    for (const [userId, labels] of notifiedUsers) {
       const webhookUrl = await getUserWebhookUrl(supabase, userId);
       if (!webhookUrl) continue;
 
+      const uniqueLabels = [...new Set(labels)];
       await sendDiscordAlert(webhookUrl, {
         title: `⏰ ${triggered} Schedule${triggered > 1 ? "s" : ""} Fired`,
-        message: `Your automation schedules were triggered at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
+        message: `Triggered: ${uniqueLabels.join(", ")} at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
         type: "warning",
       }).catch(() => {});
     }
@@ -102,11 +141,9 @@ router.post("/test-webhook", requireAuth, async (req: any, res) => {
     const supabase = getSupabaseClient(req.token);
     const webhookUrl = await getUserWebhookUrl(supabase, req.user.id);
     if (!webhookUrl) {
-      return res
-        .status(404)
-        .json({
-          error: "No Discord webhook configured. Save one in Settings first.",
-        });
+      return res.status(404).json({
+        error: "No Discord webhook configured. Save one in Settings first.",
+      });
     }
     await sendDiscordAlert(webhookUrl, {
       title: "🔔 Test Notification",
@@ -123,7 +160,7 @@ router.post("/test-webhook", requireAuth, async (req: any, res) => {
 
 // ─── Manual test trigger ───────────────────────────────────────────────────────
 
-router.post("/test-trigger/:scheduleId", async (req: any, res) => {
+router.post("/test-trigger/:scheduleId", async (req: any, res: any) => {
   const secret = req.headers["x-automation-secret"] || req.query.secret;
   if (!secret || secret !== process.env.AUTOMATION_SECRET) {
     return res
@@ -145,9 +182,20 @@ router.post("/test-trigger/:scheduleId", async (req: any, res) => {
       return res.status(404).json({ error: "Schedule not found" });
     }
 
+    const type = schedule.schedule_type || "weekly";
+    let description = `"${schedule.label || "Untitled"}" (${type}`;
+    if (schedule.time_utc) description += ` at ${schedule.time_utc} UTC`;
+    if (schedule.day_of_week !== null)
+      description += `, day ${schedule.day_of_week}`;
+    if (schedule.month_day)
+      description += `, day ${schedule.month_day} of month`;
+    if (schedule.interval_hours)
+      description += `, every ${schedule.interval_hours}h`;
+    description += `)`;
+
     sendDiscordAlert(await getUserWebhookUrl(supabase, schedule.user_id), {
       title: "🧪 Test Trigger",
-      message: `Manual test of schedule "${schedule.label || "Untitled"}" (${schedule.time_utc} UTC, day ${schedule.day_of_week}).`,
+      message: `Manual test of schedule ${description}`,
       type: "success",
     }).catch(() => {});
 
@@ -168,7 +216,7 @@ router.get("/schedules", requireAuth, async (req: any, res) => {
       .from("automation_schedules")
       .select("*")
       .eq("user_id", req.user.id)
-      .order("day_of_week", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ schedules: data || [] });
@@ -179,28 +227,80 @@ router.get("/schedules", requireAuth, async (req: any, res) => {
 });
 
 router.post("/schedules", requireAuth, async (req: any, res) => {
-  const { id, day_of_week, time_utc, enabled, label } = req.body;
+  const {
+    id,
+    schedule_type,
+    day_of_week,
+    time_utc,
+    interval_hours,
+    month_day,
+    enabled,
+    label,
+  } = req.body;
 
-  if (day_of_week === undefined || time_utc === undefined) {
-    return res
-      .status(400)
-      .json({ error: "day_of_week and time_utc are required" });
+  const type = schedule_type || "weekly";
+
+  if (type === "interval") {
+    if (!interval_hours || interval_hours < 1) {
+      return res
+        .status(400)
+        .json({ error: "interval_hours is required and must be >= 1" });
+    }
+  } else {
+    if (!time_utc) {
+      return res
+        .status(400)
+        .json({ error: "time_utc is required for this schedule type" });
+    }
+    if (type === "weekly" && day_of_week === undefined) {
+      return res
+        .status(400)
+        .json({ error: "day_of_week is required for weekly schedules" });
+    }
+    if (type === "monthly" && !month_day) {
+      return res
+        .status(400)
+        .json({ error: "month_day is required for monthly schedules" });
+    }
   }
 
   try {
     const supabase = getSupabaseClient(req.token);
     const now = new Date().toISOString();
 
+    const fields: any = {
+      schedule_type: type,
+      enabled: enabled !== undefined ? enabled : true,
+      label: label || "",
+      updated_at: now,
+    };
+
+    if (type === "weekly") {
+      fields.day_of_week = day_of_week;
+      fields.time_utc = time_utc;
+      fields.interval_hours = null;
+      fields.month_day = null;
+    } else if (type === "daily") {
+      fields.day_of_week = null;
+      fields.time_utc = time_utc;
+      fields.interval_hours = null;
+      fields.month_day = null;
+    } else if (type === "interval") {
+      fields.day_of_week = null;
+      fields.time_utc = null;
+      fields.interval_hours = interval_hours;
+      fields.month_day = null;
+    } else if (type === "monthly") {
+      fields.day_of_week = null;
+      fields.time_utc = time_utc;
+      fields.interval_hours = null;
+      fields.month_day = month_day;
+    }
+
     if (id) {
       const { data, error } = await supabase
         .from("automation_schedules")
-        .update({
-          day_of_week,
-          time_utc,
-          enabled: enabled !== undefined ? enabled : true,
-          label: label || "",
-          updated_at: now,
-        })
+        .update(fields)
         .eq("id", id)
         .eq("user_id", req.user.id)
         .select()
@@ -212,11 +312,8 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
       const { data, error } = await supabase
         .from("automation_schedules")
         .insert({
+          ...fields,
           user_id: req.user.id,
-          day_of_week,
-          time_utc,
-          enabled: enabled !== undefined ? enabled : true,
-          label: label || "",
         })
         .select()
         .single();

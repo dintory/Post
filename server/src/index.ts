@@ -16,8 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(express.json());
-app.use(cookieParser());
+// CORS must come before body parsers so OPTIONS preflight is handled immediately
 app.use(
   cors({
     origin: (origin: string | undefined, cb: any) => {
@@ -42,6 +41,8 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+app.use(express.json());
+app.use(cookieParser());
 
 // Routes
 app.use("/auth", authRoutes);

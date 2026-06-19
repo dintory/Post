@@ -36,17 +36,10 @@ export async function cachedFetch(
     return cached.data;
   }
 
-  // Fetch fresh data
-  const headers = new Headers(opts?.headers);
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('access_token') : null;
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
+  // Fetch fresh data — auth header is added by the global fetch override in main.tsx
   const res = await fetch(url, {
     ...opts,
-    headers,
-    credentials: 'include',
+    credentials: "include",
   });
 
   if (!res.ok) {

@@ -7,10 +7,10 @@ import {
   Play,
   Trash2,
   CheckCircle2,
-  Globe,
-  Sun,
-  SunMoon,
   Hash,
+  Repeat,
+  CalendarDays,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -18,8 +18,11 @@ import { cachedFetch, invalidateCache } from "@/lib/cache";
 
 interface Schedule {
   id: string;
+  schedule_type: "weekly" | "daily" | "interval" | "monthly";
   day_of_week: number;
   time_utc: string;
+  interval_hours: number;
+  month_day: number;
   enabled: boolean;
   label: string;
   last_run_at: string | null;
@@ -36,7 +39,12 @@ const DAY_NAMES = [
   "Saturday",
 ];
 
-const DAY_ICONS = [Sun, SunMoon, Sun, SunMoon, Sun, SunMoon, Globe];
+const SCHEDULE_TYPES = [
+  { value: "weekly", label: "Weekly" },
+  { value: "daily", label: "Daily" },
+  { value: "interval", label: "Every N Hours" },
+  { value: "monthly", label: "Monthly" },
+] as const;
 
 const CONTENT_TYPES = [
   { value: "Reddit Short", label: "Reddit Short" },
@@ -46,7 +54,7 @@ const CONTENT_TYPES = [
 ];
 
 function formatTime(timeUtc: string): string {
-  // UTC → local time for display
+  if (!timeUtc) return "--:--";
   const [h, m] = timeUtc.split(":").map(Number);
   const now = new Date();
   const local = new Date(
@@ -81,12 +89,47 @@ function timeAgo(dateStr: string | null): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function scheduleDescription(schedule: Schedule): string {
+  switch (schedule.schedule_type || "weekly") {
+    case "weekly":
+      return `${DAY_NAMES[schedule.day_of_week]} at ${formatTime(schedule.time_utc)}`;
+    case "daily":
+      return `Every day at ${formatTime(schedule.time_utc)}`;
+    case "interval":
+      return `Every ${schedule.interval_hours} hour${schedule.interval_hours > 1 ? "s" : ""}`;
+    case "monthly":
+      return `Day ${schedule.month_day} at ${formatTime(schedule.time_utc)}`;
+    default:
+      return "";
+  }
+}
+
+function scheduleTypeIcon(type: string) {
+  switch (type) {
+    case "weekly":
+      return Calendar;
+    case "daily":
+      return Bell;
+    case "interval":
+      return Repeat;
+    case "monthly":
+      return CalendarDays;
+    default:
+      return Calendar;
+  }
+}
+
 export function Automation() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  // Form state
+  const [scheduleType, setScheduleType] = useState<string>("weekly");
   const [newDay, setNewDay] = useState(1);
   const [newTime, setNewTime] = useState("09:00");
+  const [newInterval, setNewInterval] = useState(6);
+  const [newMonthDay, setNewMonthDay] = useState(1);
   const [newLabel, setNewLabel] = useState("Reddit Short");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -117,19 +160,34 @@ export function Automation() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const utcTime = localToUtc(newTime);
+      const body: Record<string, any> = {
+        schedule_type: scheduleType,
+        enabled: true,
+        label: newLabel,
+      };
+
+      if (scheduleType === "weekly") {
+        body.day_of_week = newDay;
+        body.time_utc = localToUtc(newTime);
+      } else if (scheduleType === "daily") {
+        body.time_utc = localToUtc(newTime);
+      } else if (scheduleType === "interval") {
+        body.interval_hours = newInterval;
+      } else if (scheduleType === "monthly") {
+        body.month_day = newMonthDay;
+        body.time_utc = localToUtc(newTime);
+      }
+
       const res = await fetch("/api/automation/schedules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          day_of_week: newDay,
-          time_utc: utcTime,
-          enabled: true,
-          label: newLabel,
-        }),
+        body: JSON.stringify(body),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save");
+      }
       const data = await res.json();
       invalidateCache("/api/automation/schedules");
       setSchedules((prev) => [...prev, data.schedule]);
@@ -149,8 +207,11 @@ export function Automation() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: schedule.id,
+          schedule_type: schedule.schedule_type,
           day_of_week: schedule.day_of_week,
           time_utc: schedule.time_utc,
+          interval_hours: schedule.interval_hours,
+          month_day: schedule.month_day,
           enabled: !schedule.enabled,
           label: schedule.label,
         }),
@@ -216,7 +277,7 @@ export function Automation() {
                 Posting Schedule
               </h2>
               <p className="text-xs text-zinc-500 mt-0.5">
-                Set days and times for automatic publishing
+                Weekly, daily, interval-based, or monthly publishing
               </p>
             </div>
             <button
@@ -236,78 +297,129 @@ export function Automation() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-visible border-b border-zinc-800/50"
               >
-                <div className="p-4 bg-zinc-800/20 flex flex-col sm:flex-row items-start sm:items-end gap-4">
-                  <div className="w-full sm:w-40">
-                    <label className="block text-xs text-zinc-500 mb-1.5">
-                      Day
-                    </label>
-                    <Dropdown
-                      options={DAY_NAMES.map((name, i) => ({
-                        value: String(i),
-                        label: name,
-                      }))}
-                      value={String(newDay)}
-                      onChange={(v) => setNewDay(Number(v))}
-                    />
-                  </div>
-                  <div className="w-full sm:w-40">
-                    <label className="block text-xs text-zinc-500 mb-1.5">
-                      Time
-                    </label>
-                    <div className="flex gap-1 items-start">
-                      <div className="flex-1">
+                <div className="p-4 bg-zinc-800/20">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                    <div className="w-full sm:w-36">
+                      <label className="block text-xs text-zinc-500 mb-1.5">
+                        Type
+                      </label>
+                      <Dropdown
+                        options={SCHEDULE_TYPES.map((t) => ({
+                          value: t.value,
+                          label: t.label,
+                        }))}
+                        value={scheduleType}
+                        onChange={(v) => setScheduleType(v)}
+                      />
+                    </div>
+
+                    {scheduleType === "weekly" && (
+                      <div className="w-full sm:w-36">
+                        <label className="block text-xs text-zinc-500 mb-1.5">
+                          Day
+                        </label>
                         <Dropdown
-                          options={Array.from({ length: 24 }, (_, i) => ({
-                            value: String(i).padStart(2, "0"),
-                            label: String(i).padStart(2, "0"),
+                          options={DAY_NAMES.map((name, i) => ({
+                            value: String(i),
+                            label: name,
                           }))}
-                          value={newTime.split(":")[0]}
-                          onChange={(v) =>
-                            setNewTime(`${v}:${newTime.split(":")[1]}`)
-                          }
+                          value={String(newDay)}
+                          onChange={(v) => setNewDay(Number(v))}
                         />
                       </div>
-                      <span className="text-zinc-500 pt-3 text-sm font-medium px-0.5">
-                        :
-                      </span>
-                      <div className="flex-1">
+                    )}
+
+                    {scheduleType === "monthly" && (
+                      <div className="w-full sm:w-28">
+                        <label className="block text-xs text-zinc-500 mb-1.5">
+                          Day of Month
+                        </label>
                         <Dropdown
-                          options={Array.from({ length: 12 }, (_, i) => ({
-                            value: String(i * 5).padStart(2, "0"),
-                            label: String(i * 5).padStart(2, "0"),
+                          options={Array.from({ length: 28 }, (_, i) => ({
+                            value: String(i + 1),
+                            label: String(i + 1),
                           }))}
-                          value={newTime.split(":")[1]}
-                          onChange={(v) =>
-                            setNewTime(`${newTime.split(":")[0]}:${v}`)
-                          }
+                          value={String(newMonthDay)}
+                          onChange={(v) => setNewMonthDay(Number(v))}
                         />
                       </div>
+                    )}
+
+                    {(scheduleType === "weekly" ||
+                      scheduleType === "daily" ||
+                      scheduleType === "monthly") && (
+                      <div className="w-full sm:w-44">
+                        <label className="block text-xs text-zinc-500 mb-1.5">
+                          Time
+                        </label>
+                        <div className="flex gap-1 items-start">
+                          <div className="flex-1">
+                            <Dropdown
+                              options={Array.from({ length: 24 }, (_, i) => ({
+                                value: String(i).padStart(2, "0"),
+                                label: String(i).padStart(2, "0"),
+                              }))}
+                              value={newTime.split(":")[0]}
+                              onChange={(v) =>
+                                setNewTime(`${v}:${newTime.split(":")[1]}`)
+                              }
+                            />
+                          </div>
+                          <span className="text-zinc-500 pt-3 text-sm font-medium px-0.5">
+                            :
+                          </span>
+                          <div className="flex-1">
+                            <Dropdown
+                              options={Array.from({ length: 12 }, (_, i) => ({
+                                value: String(i * 5).padStart(2, "0"),
+                                label: String(i * 5).padStart(2, "0"),
+                              }))}
+                              value={newTime.split(":")[1]}
+                              onChange={(v) =>
+                                setNewTime(`${newTime.split(":")[0]}:${v}`)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {scheduleType === "interval" && (
+                      <div className="w-full sm:w-36">
+                        <label className="block text-xs text-zinc-500 mb-1.5">
+                          Every (Hours)
+                        </label>
+                        <Dropdown
+                          options={[2, 3, 4, 6, 8, 12, 24].map((h) => ({
+                            value: String(h),
+                            label: `${h} hour${h > 1 ? "s" : ""}`,
+                          }))}
+                          value={String(newInterval)}
+                          onChange={(v) => setNewInterval(Number(v))}
+                        />
+                      </div>
+                    )}
+
+                    <div className="w-full sm:w-40">
+                      <label className="block text-xs text-zinc-500 mb-1.5">
+                        Content
+                      </label>
+                      <Dropdown
+                        options={CONTENT_TYPES}
+                        value={newLabel}
+                        onChange={(v) => setNewLabel(v)}
+                      />
                     </div>
                   </div>
-                  <div className="w-full sm:w-44">
-                    <label className="block text-xs text-zinc-500 mb-1.5">
-                      Content
-                    </label>
-                    <Dropdown
-                      options={CONTENT_TYPES}
-                      value={newLabel}
-                      onChange={(v) => setNewLabel(v)}
-                    />
-                  </div>
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex-1 sm:flex-none"
-                    >
+
+                  <div className="flex gap-2 mt-4 justify-end">
+                    <Button size="sm" onClick={handleSave} disabled={saving}>
                       {saving ? "Saving..." : "Create"}
                     </Button>
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => setShowForm(false)}
-                      className="flex-1 sm:flex-none"
                     >
                       Cancel
                     </Button>
@@ -329,13 +441,15 @@ export function Automation() {
                 No schedules yet
               </p>
               <p className="text-xs text-zinc-600 mt-1">
-                Add a schedule to auto-publish content on specific days.
+                Add a schedule to auto-publish content on a recurring basis.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-800/50">
               {schedules.map((schedule) => {
-                const DayIcon = DAY_ICONS[schedule.day_of_week];
+                const TypeIcon = scheduleTypeIcon(
+                  schedule.schedule_type || "weekly",
+                );
                 return (
                   <div
                     key={schedule.id}
@@ -345,17 +459,17 @@ export function Automation() {
                       <div
                         className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${schedule.enabled ? "bg-emerald-500/20" : "bg-zinc-800"}`}
                       >
-                        <DayIcon
+                        <TypeIcon
                           className={`w-5 h-5 ${schedule.enabled ? "text-emerald-400" : "text-zinc-500"}`}
                         />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium text-white">
-                            {DAY_NAMES[schedule.day_of_week]}
+                            {scheduleDescription(schedule)}
                           </p>
-                          <span className="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-300">
-                            {formatTime(schedule.time_utc)}
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider bg-zinc-800/80 text-zinc-500">
+                            {schedule.schedule_type || "weekly"}
                           </span>
                           {schedule.label && (
                             <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-zinc-800 text-zinc-400">
@@ -419,9 +533,12 @@ export function Automation() {
           <p className="text-xs text-zinc-500 flex items-start gap-2">
             <Play className="w-3.5 h-3.5 text-zinc-600 mt-0.5 shrink-0" />
             <span>
-              Click <strong>Play</strong> to test a schedule instantly. The cron
-              service checks every minute for schedules within 5 minutes of
-              their set time. All times are your local timezone.
+              <strong>Weekly</strong> — pick a day + time.{" "}
+              <strong>Daily</strong> — every day at a fixed time.{" "}
+              <strong>Every N Hours</strong> — recurring every 2–24h from last
+              run. <strong>Monthly</strong> — specific day each month. The cron
+              service checks every minute. Click <strong>Play</strong> to test a
+              schedule instantly.
             </span>
           </p>
         </div>

@@ -262,16 +262,27 @@ export function VideoCreator({
     }
   }, [generatedScript, step]);
 
-  // ── Step 7: poll job status ───────────────────────────────────────────────
+  // ── Step 7: poll job status (with exponential backoff) ───────────────────
   useEffect(() => {
     if (step !== 7 || !jobId) return;
     let isCancelled = false;
+    let retries = 0;
+    const MAX_RETRIES = 40;
+    const BASE_INTERVAL = 2_000;
 
     const poll = async () => {
+      if (isCancelled) return;
       try {
         const res = await fetch(`/api/video/queue/${jobId}`, {
           credentials: "include",
         });
+        if (!res.ok && res.status !== 404) {
+          retries++;
+          throw new Error(`Poll request failed: ${res.status}`);
+        }
+        // Reset retry count on success (job still pending is fine)
+        retries = 0;
+
         const data = await res.json();
         const job = data.job;
         if (!job || isCancelled) return;
@@ -288,14 +299,34 @@ export function VideoCreator({
           setJobError(job.error_message ?? "Pipeline failed");
         }
       } catch (err) {
-        console.error("Polling error:", err);
+        console.warn(`Polling error (attempt ${retries}/${MAX_RETRIES}):`, err);
+        if (retries >= MAX_RETRIES) {
+          setJobError(
+            "Timed out waiting for video to complete. It may still be processing.",
+          );
+        }
       }
     };
 
     poll();
-    const interval = setInterval(poll, 2500);
+
+    const scheduleNext = () => {
+      if (isCancelled) return;
+      // Exponential backoff: 2s → 3s → 4.5s → ... capped at 15s
+      const backoff = Math.min(BASE_INTERVAL * Math.pow(1.5, retries), 15_000);
+      // Add ±500ms jitter to spread out requests
+      const jitter = (Math.random() - 0.5) * 1_000;
+      const delay = Math.max(backoff + jitter, 1_000);
+
+      setTimeout(() => {
+        poll();
+        if (!isCancelled) scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+
     return () => {
-      clearInterval(interval);
       isCancelled = true;
     };
   }, [step, jobId]);
