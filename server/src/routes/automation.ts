@@ -55,8 +55,9 @@ async function handleCheck(req: any, res: any) {
       const [h, m] = schedule.time_utc.split(":").map(Number);
       const scheduledMinutes = h * 60 + m;
 
-      // ±10 minute tolerance window
-      if (Math.abs(currentMinutes - scheduledMinutes) > 10) continue;
+      // Match if schedule time is within the last 15 minutes (one cron interval)
+      const minutesSinceSchedule = currentMinutes - scheduledMinutes;
+      if (minutesSinceSchedule < 0 || minutesSinceSchedule > 15) continue;
 
       // Prevent double-fire within 20 hours
       if (schedule.last_run_at) {
@@ -117,11 +118,9 @@ router.post("/test-webhook", requireAuth, async (req: any, res) => {
     const webhookUrl = await getUserWebhookUrl(supabase, req.user.id);
 
     if (!webhookUrl) {
-      return res
-        .status(404)
-        .json({
-          error: "No Discord webhook configured. Save one in Settings first.",
-        });
+      return res.status(404).json({
+        error: "No Discord webhook configured. Save one in Settings first.",
+      });
     }
 
     await sendDiscordAlert(webhookUrl, {
