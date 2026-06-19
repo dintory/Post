@@ -38,6 +38,7 @@ app.use(
       cb(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
