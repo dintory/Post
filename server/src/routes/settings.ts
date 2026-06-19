@@ -64,7 +64,22 @@ router.patch("/", requireAuth, async (req: any, res) => {
 
     // Build update payload — only include fields that were sent
     const updates: Record<string, any> = { updated_at: now };
-    if (video_settings !== undefined) updates.video_settings = video_settings;
+
+    // For JSONB columns, merge with existing values instead of replacing
+    if (video_settings !== undefined) {
+      // Fetch existing row to merge nested JSONB
+      const { data: existing } = await supabase
+        .from("user_usage")
+        .select("video_settings")
+        .eq("user_id", req.user.id)
+        .maybeSingle();
+
+      const merged = existing?.video_settings
+        ? { ...existing.video_settings, ...video_settings }
+        : video_settings;
+      updates.video_settings = merged;
+    }
+
     if (security_settings !== undefined)
       updates.security_settings = security_settings;
     if (notification_settings !== undefined)

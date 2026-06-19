@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -12,6 +12,8 @@ import {
   Layers,
   Monitor,
   Maximize2,
+  Save,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -290,6 +292,34 @@ export function VideoEffects() {
   const [cardScale, setCardScale] = useState(1);
   const [isDragging, setIsDragging] = useState<string | null>(null);
 
+  // ── Load saved effects on mount ────────────────────────────────────────
+  const [savedToast, setSavedToast] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings", { credentials: "include" });
+        if (!res.ok) return;
+        const { settings } = await res.json();
+        const saved = settings?.video_settings?.effects;
+        if (saved) {
+          // Merge saved over defaults (only known keys)
+          setEffects((prev) => {
+            const merged = { ...prev };
+            for (const k of Object.keys(
+              DEFAULT_EFFECTS,
+            ) as (keyof VideoEffectsState)[]) {
+              if (saved[k] !== undefined) {
+                (merged as any)[k] = saved[k];
+              }
+            }
+            return merged;
+          });
+        }
+      } catch {}
+    })();
+  }, []);
+
   // Auto-cycle sample captions to simulate video playing
   useEffect(() => {
     const interval = setInterval(() => {
@@ -297,6 +327,26 @@ export function VideoEffects() {
     }, 2500);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Save effects to server ─────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          video_settings: { effects: effects },
+        }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
+    } catch (err: any) {
+      console.error("Save effects error:", err);
+      alert("Failed to save effects: " + err.message);
+    }
+  }, [effects]);
 
   const update = <K extends keyof VideoEffectsState>(
     key: K,
@@ -331,9 +381,18 @@ export function VideoEffects() {
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#505050]">
-          <Monitor className="w-3.5 h-3.5" />
-          <span>Real-time preview</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors bg-[#10b981]/20 text-[#10b981] hover:bg-[#10b981]/30 border border-[#10b981]/30"
+          >
+            <Save className="w-3.5 h-3.5" />
+            Save
+          </button>
+          <div className="flex items-center gap-2 text-xs text-[#505050]">
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Preview</span>
+          </div>
         </div>
       </header>
 
@@ -355,31 +414,42 @@ export function VideoEffects() {
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
 
-            {/* Alignment grid — only visible while dragging */}
+            {/* Google Slides-style dot grid — visible while dragging */}
             <motion.div
               animate={{ opacity: isDragging ? 1 : 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               className="absolute inset-0 z-30 pointer-events-none"
               style={{
                 backgroundImage:
-                  "linear-gradient(rgba(255,255,255,0.06) 0.5px, transparent 0.5px), linear-gradient(90deg, rgba(255,255,255,0.06) 0.5px, transparent 0.5px)",
+                  "radial-gradient(circle, rgba(255,255,255,0.35) 1.2px, transparent 1.2px)",
                 backgroundSize: "20px 20px",
               }}
             />
-            {/* Center crosshair */}
+            {/* Snap guide — vertical center */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0 }}
-              transition={{ duration: 0.2 }}
+              animate={{
+                opacity:
+                  isDragging && Math.abs(cardDrag.y + captionDrag.y) < 15
+                    ? 0.7
+                    : 0,
+              }}
+              transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
-              <div
-                className="w-full h-px bg-white/20"
-                style={{ position: "absolute" }}
-              />
-              <div
-                className="h-full w-px bg-white/20"
-                style={{ position: "absolute" }}
-              />
+              <div className="w-full h-px bg-[#10b981]/70" />
+            </motion.div>
+            {/* Snap guide — horizontal center */}
+            <motion.div
+              animate={{
+                opacity:
+                  isDragging && Math.abs(cardDrag.x + captionDrag.x) < 15
+                    ? 0.7
+                    : 0,
+              }}
+              transition={{ duration: 0.1 }}
+              className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
+            >
+              <div className="h-full w-px bg-[#10b981]/70" />
             </motion.div>
 
             {/* Card — draggable always, snaps to 10px grid */}
@@ -946,6 +1016,21 @@ export function VideoEffects() {
           border-radius: 50%;
         }
       `}</style>
+
+      {/* ── Saved toast ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {savedToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#10b981] text-white px-5 py-3 rounded-lg text-sm font-medium shadow-xl flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            Effects saved
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
