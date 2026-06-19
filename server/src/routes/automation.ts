@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { getSupabaseClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
+import {
+  getUserWebhookUrl,
+  sendDiscordAlert,
+} from "../services/discordWebhook";
 
 const router = Router();
 
@@ -15,13 +19,15 @@ const router = Router();
 router.post("/check", async (req, res) => {
   const secret = req.headers["x-automation-secret"];
   if (secret !== process.env.AUTOMATION_SECRET) {
-    return res.status(401).json({ error: "Invalid or missing automation secret" });
+    return res
+      .status(401)
+      .json({ error: "Invalid or missing automation secret" });
   }
 
   try {
     const supabase = getSupabaseClient();
     const now = new Date();
-    const currentDay = now.getUTCDay();       // 0=Sun, 1=Mon ... 6=Sat
+    const currentDay = now.getUTCDay(); // 0=Sun, 1=Mon ... 6=Sat
     const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
 
     // Fetch all enabled schedules
@@ -55,16 +61,27 @@ router.post("/check", async (req, res) => {
         if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
       }
 
-      // ── Trigger the pipeline for this user ────────────────────────────
-      // Fire and forget — do not block the response
-      triggerUserPipeline(supabase, schedule.user_id, schedule.id).catch((err) => {
-        console.error(`[Automation] Pipeline trigger error for schedule ${schedule.id}:`, err);
+      // ── Fire the schedule notification (fire-and-forget) ─────────────
+      triggerUserSchedule(
+        supabase,
+        schedule.user_id,
+        schedule.id,
+        schedule.day_of_week,
+        schedule.time_utc,
+      ).catch((err) => {
+        console.error(
+          `[Automation] Schedule notification error for ${schedule.id}:`,
+          err,
+        );
       });
 
       // Update last_run_at immediately to prevent re-triggering
       await supabase
         .from("automation_schedules")
-        .update({ last_run_at: now.toISOString(), updated_at: now.toISOString() })
+        .update({
+          last_run_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
         .eq("id", schedule.id);
 
       triggered++;
@@ -78,35 +95,48 @@ router.post("/check", async (req, res) => {
 });
 
 /**
- * Fire the video pipeline for a user asynchronously.
- * Uses the user's stored settings to generate a video.
+ * Send a Discord notification when a schedule triggers.
+ * Video publishing logic will be wired here in a future update.
  */
-async function triggerUserPipeline(supabase: any, userId: string, scheduleId: string) {
-  // Fetch a pending or default account for this user
-  const { data: accounts } = await supabase
-    .from("youtube_accounts")
-    .select("id, channel_name")
-    .eq("user_id", userId)
-    .limit(1);
+async function triggerUserSchedule(
+  supabase: any,
+  userId: string,
+  scheduleId: string,
+  dayOfWeek: number,
+  timeUtc: string,
+) {
+  const webhookUrl = await getUserWebhookUrl(supabase, userId);
+  if (!webhookUrl) return;
 
-  const accountLabel = accounts?.[0]?.channel_name || "Auto";
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
 
-  // Find a completed video to re-publish, or just log for now
-  const { data: videos } = await supabase
-    .from("video_queue")
-    .select("id, title")
-    .eq("user_id", userId)
-    .eq("status", "completed")
-    .is("yt_video_id", null)
-    .limit(1);
+  await sendDiscordAlert(webhookUrl, {
+    title: "⏰ Automation Schedule Triggered",
+    message: `Your scheduled posting time has arrived.`,
+    type: "warning",
+    jobId: scheduleId.slice(0, 8),
+    fields: [
+      { name: "Day", value: dayNames[dayOfWeek] || "Unknown", inline: true },
+      { name: "Time (UTC)", value: timeUtc, inline: true },
+      {
+        name: "Status",
+        value: "Your schedule fired — video publishing will be added soon.",
+        inline: false,
+      },
+    ],
+  });
 
-  if (videos && videos.length > 0) {
-    console.log(`[Automation] Schedule ${scheduleId}: Ready to publish "${videos[0].title}" for user ${userId}`);
-    // The actual publish step can be triggered via the existing YouTube upload endpoint.
-    // For now, we log readiness — the external cron + check endpoint handles scheduling.
-  } else {
-    console.log(`[Automation] Schedule ${scheduleId}: No pending videos for user ${userId}`);
-  }
+  console.log(
+    `[Automation] Notified user ${userId} for schedule ${scheduleId}`,
+  );
 }
 
 // ─── User CRUD ──────────────────────────────────────────────────────────────
@@ -140,7 +170,9 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
   const { id, day_of_week, time_utc, enabled } = req.body;
 
   if (day_of_week === undefined || time_utc === undefined) {
-    return res.status(400).json({ error: "day_of_week and time_utc are required" });
+    return res
+      .status(400)
+      .json({ error: "day_of_week and time_utc are required" });
   }
 
   if (day_of_week < 0 || day_of_week > 6) {
