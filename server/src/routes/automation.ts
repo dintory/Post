@@ -55,9 +55,9 @@ async function handleCheck(req: any, res: any) {
       const [h, m] = schedule.time_utc.split(":").map(Number);
       const scheduledMinutes = h * 60 + m;
 
-      // Match if schedule time is within the last 15 minutes (one cron interval)
-      const minutesSinceSchedule = currentMinutes - scheduledMinutes;
-      if (minutesSinceSchedule < 0 || minutesSinceSchedule > 15) continue;
+      // Match if the scheduled time has passed today (any time in the past)
+      // This catches schedules even if the cron fires late.
+      if (currentMinutes < scheduledMinutes) continue;
 
       // Prevent double-fire within 20 hours
       if (schedule.last_run_at) {
