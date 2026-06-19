@@ -257,7 +257,6 @@ function CaptionPreview({
           : "none",
         fontFamily: "Impact, sans-serif",
         letterSpacing: "0.02em",
-        backgroundColor: "rgba(0,0,0,0.3)",
       }}
     >
       {text.toUpperCase()}
@@ -271,6 +270,7 @@ export function VideoEffects() {
   const [effects, setEffects] = useState<VideoEffectsState>(DEFAULT_EFFECTS);
   const [currentCaptionIndex, setCurrentCaptionIndex] = useState(0);
   const [customPfpUrl, setCustomPfpUrl] = useState("");
+  const [selectedPfpUrl, setSelectedPfpUrl] = useState(PRESET_PFPS[2].src);
   const [customBgUrl, setCustomBgUrl] = useState("");
 
   // Auto-cycle sample captions to simulate video playing
@@ -288,11 +288,11 @@ export function VideoEffects() {
     setEffects((prev) => ({ ...prev, [key]: value }));
   };
 
-  const selectedPfpUrl =
+  const displayPfp =
     effects.pfpStyle === "default"
-      ? PRESET_PFPS[2].src
+      ? selectedPfpUrl
       : effects.pfpStyle === "custom"
-        ? customPfpUrl || PRESET_PFPS[0].src
+        ? customPfpUrl || selectedPfpUrl
         : null;
 
   return (
@@ -351,14 +351,18 @@ export function VideoEffects() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#1A1A1A]/95 backdrop-blur-sm rounded-xl p-3 border border-white/5"
+                className="bg-white rounded-xl p-3 shadow-lg"
+                style={{
+                  boxShadow:
+                    "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)",
+                }}
               >
                 <div className="flex items-start gap-3">
                   {/* PFP */}
-                  {selectedPfpUrl && (
-                    <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-[#252525] flex items-center justify-center">
+                  {displayPfp && (
+                    <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[#D9D9D9]">
                       <img
-                        src={selectedPfpUrl}
+                        src={displayPfp}
                         alt="PFP"
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -369,22 +373,30 @@ export function VideoEffects() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-semibold text-[#909090]">
-                        u/StoryTeller
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-xs font-bold text-[#2E3640]">
+                        r/Stories
                       </span>
-                      <span className="text-[10px] text-[#505050]">•</span>
-                      <span className="text-[10px] text-[#505050]">2h ago</span>
+                      <span className="text-[10px] text-[#5C6C74]">•</span>
+                      <span className="text-[10px] text-[#5C6C74]">
+                        u/throwaway_8462
+                      </span>
                     </div>
-                    <p className="text-sm text-[#E8E8E8] leading-relaxed line-clamp-3">
-                      My neighbor left a note on my car that said "Learn how to
-                      park." So I left one on his that said "Learn how to mind
-                      your own business."
+                    <p className="text-sm font-semibold text-[#11151A] leading-tight line-clamp-3 mb-0.5">
+                      My neighbor left a note on my car that said \"Learn how to
+                      park.\" So I left one on his.
                     </p>
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-[#505050]">
-                      <span>↑ 2.4k</span>
-                      <span>↓ 127</span>
-                      <span>💬 89</span>
+                    <p className="text-[11px] text-[#5C6C74] leading-snug line-clamp-2">
+                      I can't believe people actually do this. I came out to my
+                      car this morning and found a sticky note on my windshield.
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span>⬆</span> 2.4k
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span>💬</span> 89
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -559,7 +571,12 @@ export function VideoEffects() {
                       {PRESET_PFPS.slice(0, 6).map((pfp, i) => (
                         <button
                           key={i}
-                          className="w-8 h-8 rounded-full overflow-hidden border border-[#252525] hover:border-[#10b981] transition-colors"
+                          onClick={() => setSelectedPfpUrl(pfp.src)}
+                          className={`w-8 h-8 rounded-full overflow-hidden border-2 transition-all ${
+                            selectedPfpUrl === pfp.src
+                              ? "border-[#10b981] ring-1 ring-[#10b981]/30"
+                              : "border-[#252525] hover:border-[#505050]"
+                          }`}
                           title={pfp.name}
                         >
                           <img
