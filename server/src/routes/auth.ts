@@ -5,10 +5,13 @@ import { requireAuth } from "../middleware/requireAuth";
 const router = Router();
 
 // Configuration for cookies
+// In production, frontend (Vercel) and backend (Render) are on different origins,
+// so we need SameSite=None + Secure for cross-site cookie to work.
+const isProduction = process.env.NODE_ENV === "production";
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: isProduction,
+  sameSite: (isProduction ? "none" : "lax") as "none" | "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
