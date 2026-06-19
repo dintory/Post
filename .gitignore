@@ -20,7 +20,9 @@ server/.env
 docs
 
 # ─── Assets downloaded at runtime ────────────────────
-server/backgrounds/
+server/backgrounds/**/*.mp4
+server/backgrounds/**/*.mov
+server/backgrounds/**/*.avi
 
 # ─── OS files ─────────────────────────────────────────
 .DS_Store
