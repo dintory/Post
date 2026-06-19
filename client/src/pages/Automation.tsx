@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
+import { cachedFetch, invalidateCache } from "@/lib/cache";
 
 interface Schedule {
   id: string;
@@ -98,11 +99,9 @@ export function Automation() {
   const fetchSchedules = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/automation/schedules", {
-        credentials: "include",
+      const data = await cachedFetch("/api/automation/schedules", {
+        ttl: 10000,
       });
-      if (!res.ok) throw new Error("Failed to load schedules");
-      const data = await res.json();
       setSchedules(data.schedules || []);
     } catch (err) {
       console.error("Error fetching schedules:", err);
@@ -132,6 +131,7 @@ export function Automation() {
       });
       if (!res.ok) throw new Error("Failed to save");
       const data = await res.json();
+      invalidateCache("/api/automation/schedules");
       setSchedules((prev) => [...prev, data.schedule]);
       setShowForm(false);
       showToast("Schedule created!");
@@ -157,6 +157,7 @@ export function Automation() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to update");
+      invalidateCache("/api/automation/schedules");
       setSchedules((prev) =>
         prev.map((s) =>
           s.id === schedule.id ? { ...s, enabled: !s.enabled } : s,
@@ -188,6 +189,7 @@ export function Automation() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete");
+      invalidateCache("/api/automation/schedules");
       setSchedules((prev) => prev.filter((s) => s.id !== id));
       showToast("Schedule deleted.");
     } catch (err: any) {

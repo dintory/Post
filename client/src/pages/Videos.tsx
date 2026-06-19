@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { cachedFetch, invalidateCache } from "@/lib/cache";
 
 interface VideoJob {
   id: string;
@@ -102,11 +103,7 @@ export function Videos() {
   const fetchVideos = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/video/queue", { credentials: "include" });
-      if (!res.ok) {
-        throw new Error("Failed to retrieve video queue");
-      }
-      const data = await res.json();
+      const data = await cachedFetch("/api/video/queue", { ttl: 10000 });
       setVideos(data.jobs || []);
       setError(null);
     } catch (err: any) {
@@ -146,7 +143,7 @@ export function Videos() {
       if (!res.ok) {
         throw new Error("Failed to delete video");
       }
-      // Instantly update UI list
+      invalidateCache("/api/video/queue");
       setVideos((prev) => prev.filter((v) => v.id !== id));
       showToast("Video deleted successfully!");
     } catch (err: any) {
@@ -214,6 +211,7 @@ export function Videos() {
           }),
         ),
       );
+      invalidateCache("/api/video/queue");
       setVideos((prev) => prev.filter((v) => !selectedIds.has(v.id)));
       showToast(
         selectedIds.size === 1
