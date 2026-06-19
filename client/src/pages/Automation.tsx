@@ -37,20 +37,30 @@ const DAY_ICONS = [Sun, SunMoon, Sun, SunMoon, Sun, SunMoon, Globe];
 
 function formatTime(timeUtc: string): string {
   const [h, m] = timeUtc.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-
-  // Also show local time
+  // Convert UTC time to local time for display
   const now = new Date();
   const local = new Date(
     Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), h, m),
   );
   const localH = local.getHours();
   const localM = local.getMinutes();
-  const localPeriod = localH >= 12 ? "PM" : "AM";
-  const localHour = localH % 12 || 12;
+  const period = localH >= 12 ? "PM" : "AM";
+  const hour = localH % 12 || 12;
+  return `${hour}:${String(localM).padStart(2, "0")} ${period}`;
+}
 
-  return `${hour}:${m.toString().padStart(2, "0")} ${period} UTC (${localHour}:${String(localM).padStart(2, "0")} ${localPeriod} local)`;
+function localToUtc(timeLocal: string): string {
+  // Convert local time (HH:MM) to UTC (HH:MM)
+  const [h, m] = timeLocal.split(":").map(Number);
+  const now = new Date();
+  const local = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    h,
+    m,
+  );
+  return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -99,12 +109,13 @@ export function Automation() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const utcTime = localToUtc(newTime);
       const res = await fetch("/api/automation/schedules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           day_of_week: newDay,
-          time_utc: newTime,
+          time_utc: utcTime,
           enabled: true,
         }),
         credentials: "include",
@@ -189,7 +200,7 @@ export function Automation() {
         </div>
 
         {/* Schedules Section */}
-        <div className="bg-zinc-900/50 rounded-xl border border-zinc-800/50 overflow-hidden">
+        <div className="bg-zinc-900/50 rounded-xl border border-zinc-800/50">
           <div className="flex items-center justify-between p-5 border-b border-zinc-800/50">
             <div>
               <h2 className="text-sm font-semibold text-white">
