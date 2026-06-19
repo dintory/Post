@@ -21,9 +21,10 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173", // Vite dev server
-      "https://post-rtc8.onrender.com", // Production
-      process.env.APP_URL || "",
-    ].filter(Boolean),
+      "https://post-rtc8.onrender.com", // Render backend
+      "https://post-mu-navy.vercel.app", // Vercel production
+      ...(process.env.CORS_ORIGINS || "").split(",").filter(Boolean),
+    ],
     credentials: true,
   }),
 );
