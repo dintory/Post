@@ -5,11 +5,9 @@ import {
   Sliders,
   Sparkles,
   Type,
-  Image,
   User,
   Palette,
   Move,
-  Layers,
   Monitor,
   Maximize2,
   Save,
@@ -30,8 +28,6 @@ interface VideoEffectsState {
   captionOutlineWidth: number;
   cardPlacement: "top" | "center" | "bottom";
   textPlacement: "top" | "center" | "bottom";
-  backgroundImage: string;
-  backgroundBlur: number;
 }
 
 const DEFAULT_EFFECTS: VideoEffectsState = {
@@ -43,8 +39,6 @@ const DEFAULT_EFFECTS: VideoEffectsState = {
   captionOutlineWidth: 4,
   cardPlacement: "bottom",
   textPlacement: "center",
-  backgroundImage: "/dintory-dintoryware.png",
-  backgroundBlur: 0,
 };
 
 const CAPTION_ANIMATIONS = [
@@ -283,7 +277,6 @@ export function VideoEffects() {
   const [currentCaptionIndex, setCurrentCaptionIndex] = useState(0);
   const [customPfpUrl, setCustomPfpUrl] = useState("");
   const [selectedPfpUrl, setSelectedPfpUrl] = useState(PRESET_PFPS[2].src);
-  const [customBgUrl, setCustomBgUrl] = useState("");
 
   // Free-drag offsets (pixels relative to default position)
   const [captionDrag, setCaptionDrag] = useState({ x: 0, y: 0 });
@@ -401,15 +394,8 @@ export function VideoEffects() {
         {/* ── Preview Panel ────────────────────────────────────────────── */}
         <div className="flex-1 flex items-center justify-center p-6 bg-[#050505] border-r border-[#1A1A1A]">
           <div className="relative w-[360px] h-[640px] rounded-3xl overflow-hidden border-4 border-[#1A1A1A] shadow-2xl shadow-black/50 bg-black">
-            {/* Background */}
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `url(${effects.backgroundImage || "/dintory-dintoryware.png"})`,
-                filter: `blur(${effects.backgroundBlur}px)`,
-                transform: "scale(1.05)",
-              }}
-            />
+            {/* Background — solid dark (actual video replaces this) */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a]" />
 
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
@@ -465,63 +451,6 @@ export function VideoEffects() {
               <div className="h-full w-px bg-[#10b981]/70" />
             </motion.div>
 
-            {/* Bounding box — on the currently dragged element */}
-            <motion.div
-              animate={{ opacity: isDragging ? 1 : 0 }}
-              transition={{ duration: 0.1 }}
-              className="absolute inset-0 z-25 pointer-events-none"
-              style={{ display: isDragging ? "block" : "none" }}
-            >
-              {/* Dashed box around card (left/right + 80px top simulate card area) */}
-              {isDragging === "card" && (
-                <div
-                  className="absolute left-4 right-4"
-                  style={{
-                    top:
-                      effects.cardPlacement === "top"
-                        ? "64px"
-                        : effects.cardPlacement === "center"
-                          ? "50%"
-                          : "auto",
-                    bottom:
-                      effects.cardPlacement === "bottom" ? "96px" : "auto",
-                    border: "1.5px dashed rgba(16,185,129,0.5)",
-                    borderRadius: "12px",
-                    height: "140px",
-                    transform:
-                      `translate(${cardDrag.x}px, ${cardDrag.y}px)` +
-                      (effects.cardPlacement === "center"
-                        ? " translateY(-50%)"
-                        : ""),
-                  }}
-                />
-              )}
-              {/* Dashed box around caption */}
-              {isDragging === "caption" && (
-                <div
-                  className="absolute left-8 right-8"
-                  style={{
-                    top:
-                      effects.textPlacement === "top"
-                        ? "16px"
-                        : effects.textPlacement === "center"
-                          ? "50%"
-                          : "auto",
-                    bottom:
-                      effects.textPlacement === "bottom" ? "16px" : "auto",
-                    border: "1.5px dashed rgba(16,185,129,0.5)",
-                    borderRadius: "8px",
-                    height: "40px",
-                    transform:
-                      `translate(${captionDrag.x}px, ${captionDrag.y}px)` +
-                      (effects.textPlacement === "center"
-                        ? " translateY(-50%)"
-                        : ""),
-                  }}
-                />
-              )}
-            </motion.div>
-
             {/* Card — draggable always, snaps to 10px grid */}
             <motion.div
               drag
@@ -535,15 +464,21 @@ export function VideoEffects() {
                 setIsDragging(null);
                 document.body.style.userSelect = "";
                 const snap = 10;
-                setCardDrag({
-                  x: Math.round((cardDrag.x + info.offset.x) / snap) * snap,
-                  y: Math.round((cardDrag.y + info.offset.y) / snap) * snap,
-                });
+                let newX =
+                  Math.round((cardDrag.x + info.offset.x) / snap) * snap;
+                let newY =
+                  Math.round((cardDrag.y + info.offset.y) / snap) * snap;
+                // Snap to exact center if within 15px
+                if (Math.abs(newX) < 15) newX = 0;
+                if (Math.abs(newY) < 15) newY = 0;
+                setCardDrag({ x: newX, y: newY });
               }}
               animate={{ x: cardDrag.x, y: cardDrag.y }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className={`absolute left-4 right-4 z-10 ${
-                isDragging === "card" ? "cursor-grabbing" : "cursor-grab"
+                isDragging === "card"
+                  ? "cursor-grabbing ring-2 ring-[#10b981]/40 ring-inset rounded-xl"
+                  : "cursor-grab"
               } ${
                 effects.cardPlacement === "top"
                   ? "top-16"
@@ -659,15 +594,21 @@ export function VideoEffects() {
                 setIsDragging(null);
                 document.body.style.userSelect = "";
                 const snap = 10;
-                setCaptionDrag({
-                  x: Math.round((captionDrag.x + info.offset.x) / snap) * snap,
-                  y: Math.round((captionDrag.y + info.offset.y) / snap) * snap,
-                });
+                let newX =
+                  Math.round((captionDrag.x + info.offset.x) / snap) * snap;
+                let newY =
+                  Math.round((captionDrag.y + info.offset.y) / snap) * snap;
+                // Snap to exact center if within 15px
+                if (Math.abs(newX) < 15) newX = 0;
+                if (Math.abs(newY) < 15) newY = 0;
+                setCaptionDrag({ x: newX, y: newY });
               }}
               animate={{ x: captionDrag.x, y: captionDrag.y }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className={`absolute left-4 right-4 z-20 ${
-                isDragging === "caption" ? "cursor-grabbing" : "cursor-grab"
+                isDragging === "caption"
+                  ? "cursor-grabbing ring-2 ring-[#10b981]/40 ring-inset rounded-lg"
+                  : "cursor-grab"
               } ${
                 effects.textPlacement === "top"
                   ? "top-4"
@@ -690,7 +631,9 @@ export function VideoEffects() {
                   animate={
                     effects.captionAnimation === "pop-out"
                       ? { scale: 1, opacity: 1 }
-                      : { x: 0, opacity: 1 }
+                      : effects.captionAnimation === "slide"
+                        ? { x: 0, opacity: 1 }
+                        : { opacity: 1 }
                   }
                   exit={
                     effects.captionExit === "fade"
@@ -699,14 +642,9 @@ export function VideoEffects() {
                         ? { y: 40, opacity: 0 }
                         : effects.captionExit === "scale-down"
                           ? { scale: 0.8, opacity: 0 }
-                          : { opacity: 1 }
+                          : { opacity: 1, transition: { duration: 0 } }
                   }
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 25,
-                    duration: effects.captionExit === "none" ? 0.2 : 0.35,
-                  }}
+                  transition={{ duration: 0.3 }}
                   className="flex justify-center relative group"
                 >
                   {/* Resize handle for caption */}
@@ -932,82 +870,12 @@ export function VideoEffects() {
 
             <Separator />
 
-            {/* ── Background ────────────────────────────────────────────── */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Image className="w-4 h-4 text-[#10b981]" />
-                <h2 className="text-sm font-semibold text-[#E8E8E8]">
-                  Background
-                </h2>
-              </div>
-              <div className="space-y-4 pl-6">
-                <SettingRow
-                  icon={Image}
-                  label="Image"
-                  description="Background image for the video"
-                >
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() =>
-                        update("backgroundImage", "/dintory-dintoryware.png")
-                      }
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                        effects.backgroundImage === "/dintory-dintoryware.png"
-                          ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
-                          : "bg-[#1A1A1A] text-[#909090] border border-[#1A1A1A] hover:border-[#252525]"
-                      }`}
-                    >
-                      Default
-                    </button>
-                    <button
-                      onClick={() => update("backgroundImage", "")}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                        effects.backgroundImage === ""
-                          ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
-                          : "bg-[#1A1A1A] text-[#909090] border border-[#1A1A1A] hover:border-[#252525]"
-                      }`}
-                    >
-                      None
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Or paste image URL..."
-                    value={customBgUrl}
-                    onChange={(e) => {
-                      setCustomBgUrl(e.target.value);
-                      if (e.target.value)
-                        update("backgroundImage", e.target.value);
-                    }}
-                    className="w-full px-3 py-2 rounded-lg text-sm bg-[#1A1A1A] border border-[#1A1A1A] text-[#E8E8E8] placeholder-[#505050] focus:border-[#10b981] focus:outline-none transition-colors"
-                  />
-                </SettingRow>
-
-                <SettingRow
-                  icon={Layers}
-                  label="Blur"
-                  description="Softens the background"
-                >
-                  <RangeSlider
-                    value={effects.backgroundBlur}
-                    min={0}
-                    max={20}
-                    step={1}
-                    onChange={(v) => update("backgroundBlur", v)}
-                    label={`${effects.backgroundBlur}px`}
-                  />
-                </SettingRow>
-              </div>
-            </div>
-
-            <Separator />
-
             {/* ── Text Placement ────────────────────────────────────────── */}
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <Move className="w-4 h-4 text-[#10b981]" />
                 <h2 className="text-sm font-semibold text-[#E8E8E8]">
-                  Caption Placement
+                  Caption
                 </h2>
               </div>
               <div className="pl-6">
