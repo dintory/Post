@@ -19,12 +19,24 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173", // Vite dev server
-      "https://post-rtc8.onrender.com", // Render backend
-      "https://post-mu-navy.vercel.app", // Vercel production
-      ...(process.env.CORS_ORIGINS || "").split(",").filter(Boolean),
-    ],
+    origin: (origin: string | undefined, cb: any) => {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return cb(null, true);
+
+      const allowed = [
+        "http://localhost:5173",
+        "https://post-rtc8.onrender.com",
+        ...(process.env.CORS_ORIGINS || "").split(",").filter(Boolean),
+      ];
+
+      // Allow any Vercel deployment URL (*.vercel.app)
+      if (origin.endsWith(".vercel.app")) return cb(null, true);
+
+      if (allowed.includes(origin)) return cb(null, true);
+
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      cb(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
