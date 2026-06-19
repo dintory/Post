@@ -11,6 +11,7 @@ import { Accounts } from "./pages/Accounts";
 import { Videos } from "./pages/Videos";
 import { Video } from "./pages/Video";
 import { Analytics } from "./pages/Analytics";
+import { VideoEffects } from "./pages/VideoEffects";
 import { Automation } from "./pages/Automation";
 import { Settings } from "./pages/Settings";
 import { Help } from "./pages/Help";
@@ -40,6 +41,7 @@ const validRoutes = [
   "/accounts",
   "/videos",
   "/video",
+  "/video/effects",
   "/analytics",
   "/automation",
   "/settings",
@@ -142,6 +144,15 @@ function AppContent() {
                     element={
                       <PageWrapper>
                         <Video />
+                      </PageWrapper>
+                    }
+                    errorElement={<ErrorBoundaryWrapper />}
+                  />
+                  <Route
+                    path="/video/effects"
+                    element={
+                      <PageWrapper>
+                        <VideoEffects />
                       </PageWrapper>
                     }
                     errorElement={<ErrorBoundaryWrapper />}
