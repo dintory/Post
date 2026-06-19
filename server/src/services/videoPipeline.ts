@@ -68,6 +68,7 @@ export const runVideoPipeline = async (
     aiModel,
     script: preGeneratedScript,
     redditConfig,
+    description,
   } = job;
   const now = new Date().toISOString();
 
@@ -80,6 +81,7 @@ export const runVideoPipeline = async (
       {
         user_id: userId,
         title,
+        description: description || null,
         format,
         status: "generating",
         scheduled_at: scheduledAt ?? null,

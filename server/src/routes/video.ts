@@ -189,6 +189,7 @@ router.post("/process", requireAuth, async (req: any, res) => {
     aiModel,
     script, // optional: pre-generated script from wizard
     redditConfig,
+    description,
   } = req.body;
 
   if (!title || !format) {
@@ -219,6 +220,7 @@ router.post("/process", requireAuth, async (req: any, res) => {
       aiModel,
       script,
       redditConfig,
+      description,
       token: req.token,
     });
 

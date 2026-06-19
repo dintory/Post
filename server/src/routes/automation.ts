@@ -100,6 +100,38 @@ async function handleCheck(req: any, res: any) {
         })
         .eq("id", schedule.id);
 
+      // Fire the video pipeline asynchronously (fire-and-forget)
+      (async () => {
+        try {
+          const { runVideoPipeline } =
+            await import("../services/videoPipeline");
+          const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!serviceRoleKey) {
+            console.warn(
+              "[Automation] SUPABASE_SERVICE_ROLE_KEY not set, skipping pipeline",
+            );
+            return;
+          }
+          const autoTitle = schedule.label
+            ? `${schedule.label} #${Math.floor(Date.now() / 1000)}`
+            : `Automated Video #${Math.floor(Date.now() / 1000)}`;
+          await runVideoPipeline({
+            userId: schedule.user_id,
+            title: autoTitle,
+            format: "reddit_story",
+            token: serviceRoleKey,
+          });
+          console.log(
+            `[Automation] Pipeline triggered for schedule ${schedule.id}`,
+          );
+        } catch (err) {
+          console.error(
+            `[Automation] Failed to trigger pipeline for schedule ${schedule.id}:`,
+            err,
+          );
+        }
+      })();
+
       const existing = notifiedUsers.get(schedule.user_id) || [];
       existing.push(schedule.label || type);
       notifiedUsers.set(schedule.user_id, existing);
@@ -116,6 +148,13 @@ async function handleCheck(req: any, res: any) {
         title: `⏰ ${triggered} Schedule${triggered > 1 ? "s" : ""} Fired`,
         message: `Triggered: ${uniqueLabels.join(", ")} at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
         type: "warning",
+        fields: [
+          {
+            name: "Pipeline Generated",
+            value: "Yes",
+            inline: true,
+          },
+        ],
       }).catch(() => {});
     }
 

@@ -23,6 +23,7 @@ export interface VideoGenerationJob {
   script?: any;
   /** Reddit card styling configuration, stats, and metadata */
   redditConfig?: any;
+  description?: string;
   /** Authenticated Supabase JWT token to run DB operations under the user session */
   token?: string;
 }
