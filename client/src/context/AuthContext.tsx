@@ -92,9 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.access_token) {
         localStorage.setItem("access_token", data.access_token);
       }
+      // Fetch user data so isAuthenticated updates immediately
+      await checkAuth();
       return data;
     },
-    [],
+    [checkAuth],
   );
 
   useEffect(() => {
