@@ -4,9 +4,9 @@ import {
   Calendar,
   Clock,
   Plus,
+  Play,
   Trash2,
   CheckCircle2,
-  AlertTriangle,
   Globe,
   Sun,
   SunMoon,
@@ -39,7 +39,18 @@ function formatTime(timeUtc: string): string {
   const [h, m] = timeUtc.split(":").map(Number);
   const period = h >= 12 ? "PM" : "AM";
   const hour = h % 12 || 12;
-  return `${hour}:${m.toString().padStart(2, "0")} ${period} UTC`;
+
+  // Also show local time
+  const now = new Date();
+  const local = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), h, m),
+  );
+  const localH = local.getHours();
+  const localM = local.getMinutes();
+  const localPeriod = localH >= 12 ? "PM" : "AM";
+  const localHour = localH % 12 || 12;
+
+  return `${hour}:${m.toString().padStart(2, "0")} ${period} UTC (${localHour}:${String(localM).padStart(2, "0")} ${localPeriod} local)`;
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -129,6 +140,21 @@ export function Automation() {
           s.id === schedule.id ? { ...s, enabled: !s.enabled } : s,
         ),
       );
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleTestTrigger = async (id: string) => {
+    try {
+      const res = await fetch(
+        `/api/automation/test-trigger/${id}?secret=yX8FH0C91y`,
+        {
+          method: "POST",
+        },
+      );
+      if (!res.ok) throw new Error("Test trigger failed");
+      showToast("🧪 Test webhook sent!");
     } catch (err: any) {
       alert(err.message);
     }
@@ -336,6 +362,13 @@ export function Automation() {
                         />
                       </button>
                       <button
+                        onClick={() => handleTestTrigger(schedule.id)}
+                        className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                        title="Test Now"
+                      >
+                        <Play className="w-4 h-4 text-zinc-500 hover:text-emerald-400" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(schedule.id)}
                         className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
                         title="Delete schedule"
@@ -353,11 +386,11 @@ export function Automation() {
         {/* External cron info */}
         <div className="mt-6 p-4 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
           <p className="text-xs text-zinc-500 flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-zinc-600 mt-0.5 shrink-0" />
+            <Play className="w-3.5 h-3.5 text-zinc-600 mt-0.5 shrink-0" />
             <span>
-              Schedules are checked by an external cron service every 15
-              minutes. Your video will be published within ±10 minutes of the
-              scheduled time.
+              Click the <strong>Play</strong> button on any schedule to test it
+              instantly. The cron service checks every 15 minutes for automatic
+              firing. Times shown in both UTC and your local timezone.
             </span>
           </p>
         </div>

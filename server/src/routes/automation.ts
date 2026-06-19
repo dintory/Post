@@ -137,6 +137,52 @@ router.post("/test-webhook", requireAuth, async (req: any, res) => {
   }
 });
 
+// ─── Manual test trigger ───────────────────────────────────────────────────────
+
+/**
+ * POST /api/automation/test-trigger/:scheduleId
+ * Bypass all schedule checks and immediately fire the webhook for testing.
+ * Does not update last_run_at.
+ */
+router.post("/test-trigger/:scheduleId", async (req: any, res) => {
+  const secret = req.headers["x-automation-secret"] || req.query.secret;
+  if (!secret || secret !== process.env.AUTOMATION_SECRET) {
+    return res
+      .status(401)
+      .json({ error: "Invalid or missing automation secret" });
+  }
+
+  const { scheduleId } = req.params;
+
+  try {
+    const supabase = getSupabaseClient();
+
+    const { data: schedule, error } = await supabase
+      .from("automation_schedules")
+      .select("*")
+      .eq("id", scheduleId)
+      .single();
+
+    if (error || !schedule) {
+      return res.status(404).json({ error: "Schedule not found" });
+    }
+
+    // Fire the webhook asynchronously (fire-and-forget)
+    sendDiscordAlert(await getUserWebhookUrl(supabase, schedule.user_id), {
+      title: "🧪 Test Trigger",
+      message: `Manual test of schedule for ${schedule.time_utc} UTC on day ${schedule.day_of_week}.`,
+      type: "success",
+    }).catch(() => {});
+
+    console.log(`[Automation] Test trigger fired for schedule ${scheduleId}`);
+
+    return res.json({ success: true, message: "Test trigger fired!" });
+  } catch (err: any) {
+    console.error("[Automation] Test trigger error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── User CRUD ──────────────────────────────────────────────────────────────
 
 router.get("/schedules", requireAuth, async (req: any, res) => {
