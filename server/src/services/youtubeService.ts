@@ -9,7 +9,7 @@ const CLIENT_ID = process.env.YOUTUBE_CLIENT_ID;
 const CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET;
 const REDIRECT_URI =
   process.env.YOUTUBE_REDIRECT_URI ||
-  "http://localhost:5000/auth/youtube/callback";
+  "https://post-rtc8.onrender.com/auth/youtube/callback";
 
 const oauth2Client = new google.auth.OAuth2(
   CLIENT_ID,

@@ -1,11 +1,11 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export interface OpenRouterMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -40,37 +40,49 @@ export interface OpenRouterAssistantMessage {
 }
 
 export interface OpenRouterContentPart {
-  type: 'text' | 'image_url';
+  type: "text" | "image_url";
   text?: string;
   image_url?: OpenRouterImageUrl;
 }
 
 export interface OpenRouterImageConfig {
-  aspect_ratio?: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9';
+  aspect_ratio?:
+    | "1:1"
+    | "2:3"
+    | "3:2"
+    | "3:4"
+    | "4:3"
+    | "4:5"
+    | "5:4"
+    | "9:16"
+    | "16:9"
+    | "21:9";
   image_size?: string;
 }
 
 export interface OpenRouterImageRequest extends OpenRouterChatRequest {
-  modalities: ('image' | 'text')[];
+  modalities: ("image" | "text")[];
   image_config?: OpenRouterImageConfig;
 }
 
 export const chatCompletion = async (
-  request: OpenRouterChatRequest
+  request: OpenRouterChatRequest,
 ): Promise<OpenRouterChatResponse> => {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured in environment variables');
+    throw new Error(
+      "OPENROUTER_API_KEY is not configured in environment variables",
+    );
   }
 
   const response = await fetch(OPENROUTER_API_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
-      'X-Title': 'Commissioner',
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
+      "X-Title": "Commissioner",
     },
     body: JSON.stringify(request),
   });
@@ -84,52 +96,59 @@ export const chatCompletion = async (
 };
 
 export const imageGeneration = async (
-  request: OpenRouterImageRequest
+  request: OpenRouterImageRequest,
 ): Promise<{ imageDataUrl: string; text?: string }> => {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured in environment variables');
+    throw new Error(
+      "OPENROUTER_API_KEY is not configured in environment variables",
+    );
   }
 
   const response = await fetch(OPENROUTER_API_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
-      'X-Title': 'Commissioner',
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.APP_URL || "https://post-rtc8.onrender.com",
+      "X-Title": "Commissioner",
     },
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`OpenRouter image API error (${response.status}): ${errorBody}`);
+    throw new Error(
+      `OpenRouter image API error (${response.status}): ${errorBody}`,
+    );
   }
 
   const result = (await response.json()) as OpenRouterChatResponse;
   const message = result.choices[0]?.message;
 
   if (!message) {
-    throw new Error('OpenRouter returned no message for image generation');
+    throw new Error("OpenRouter returned no message for image generation");
   }
 
   // Primary: images array on message
   const fromImages = message.images?.[0]?.image_url?.url;
   if (fromImages) {
-    const text = typeof message.content === 'string' ? message.content : undefined;
+    const text =
+      typeof message.content === "string" ? message.content : undefined;
     return { imageDataUrl: fromImages, text };
   }
 
   // Fallback: content parts with image_url
   if (Array.isArray(message.content)) {
-    const imagePart = message.content.find((p) => p.type === 'image_url' && p.image_url?.url);
+    const imagePart = message.content.find(
+      (p) => p.type === "image_url" && p.image_url?.url,
+    );
     if (imagePart?.image_url?.url) {
-      const textPart = message.content.find((p) => p.type === 'text');
+      const textPart = message.content.find((p) => p.type === "text");
       return { imageDataUrl: imagePart.image_url.url, text: textPart?.text };
     }
   }
 
-  throw new Error('OpenRouter response did not contain a generated image');
+  throw new Error("OpenRouter response did not contain a generated image");
 };

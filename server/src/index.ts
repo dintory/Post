@@ -19,7 +19,11 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "http://localhost:5173", // Vite default dev server
+    origin: [
+      "http://localhost:5173", // Vite dev server
+      "https://post-rtc8.onrender.com", // Production
+      process.env.APP_URL || "",
+    ].filter(Boolean),
     credentials: true,
   }),
 );
@@ -39,7 +43,8 @@ app.get("/api/health", (req, res) => {
 async function start() {
   await ensureBackgroundVideo();
   app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    const baseUrl = process.env.APP_URL || `http://localhost:${PORT}`;
+    console.log(`Server is running on ${baseUrl}`);
   });
 }
 

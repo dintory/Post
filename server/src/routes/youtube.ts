@@ -99,8 +99,9 @@ router.get("/auth/youtube/callback", requireAuth, async (req: any, res) => {
               window.opener.postMessage({ type: 'youtube-oauth-success' }, '*');
               window.close();
             } else {
+              const appUrl = 'https://post-rtc8.onrender.com';
               setTimeout(function() {
-                window.location.href = 'http://localhost:5173/accounts';
+                window.location.href = appUrl + '/accounts';
               }, 1500);
             }
           </script>
