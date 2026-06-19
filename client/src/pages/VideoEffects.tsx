@@ -11,7 +11,6 @@ import {
   Move,
   Layers,
   Monitor,
-  Grid,
   Maximize2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,8 +30,6 @@ interface VideoEffectsState {
   textPlacement: "top" | "center" | "bottom";
   backgroundImage: string;
   backgroundBlur: number;
-  dragEnabled: boolean;
-  showGrid: boolean;
 }
 
 const DEFAULT_EFFECTS: VideoEffectsState = {
@@ -46,8 +43,6 @@ const DEFAULT_EFFECTS: VideoEffectsState = {
   textPlacement: "center",
   backgroundImage: "/dintory-dintoryware.png",
   backgroundBlur: 0,
-  dragEnabled: false,
-  showGrid: false,
 };
 
 const CAPTION_ANIMATIONS = [
@@ -343,7 +338,7 @@ export function VideoEffects() {
       </header>
 
       {/* ── Main Layout ────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-0">
+      <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
         {/* ── Preview Panel ────────────────────────────────────────────── */}
         <div className="flex-1 flex items-center justify-center p-6 bg-[#050505] border-r border-[#1A1A1A]">
           <div className="relative w-[360px] h-[640px] rounded-3xl overflow-hidden border-4 border-[#1A1A1A] shadow-2xl shadow-black/50 bg-black">
@@ -360,39 +355,28 @@ export function VideoEffects() {
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
 
-            {/* Grid overlay when active */}
-            {effects.showGrid && (
-              <div
-                className="absolute inset-0 z-30 pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(16, 185, 129, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.15) 1px, transparent 1px)",
-                  backgroundSize: "20px 20px",
-                }}
-              />
-            )}
-
-            {/* Card placement zone — draggable */}
+            {/* Card — draggable always, snaps to 10px grid */}
             <motion.div
-              drag={effects.dragEnabled}
+              drag
               dragMomentum={false}
               dragElastic={0}
-              onDragStart={() => setIsDragging("card")}
+              onDragStart={() => {
+                setIsDragging("card");
+                document.body.style.userSelect = "none";
+              }}
               onDragEnd={(_, info) => {
                 setIsDragging(null);
-                // Snap to 10px grid
+                document.body.style.userSelect = "";
                 const snap = 10;
                 setCardDrag({
                   x: Math.round((cardDrag.x + info.offset.x) / snap) * snap,
                   y: Math.round((cardDrag.y + info.offset.y) / snap) * snap,
                 });
               }}
+              animate={{ x: cardDrag.x, y: cardDrag.y }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className={`absolute left-4 right-4 z-10 ${
-                isDragging === "card"
-                  ? "cursor-grabbing"
-                  : effects.dragEnabled
-                    ? "cursor-grab"
-                    : ""
+                isDragging === "card" ? "cursor-grabbing" : "cursor-grab"
               } ${
                 effects.cardPlacement === "top"
                   ? "top-16"
@@ -401,10 +385,9 @@ export function VideoEffects() {
                     : "bottom-24"
               }`}
               style={{
-                translateX: cardDrag.x,
-                translateY: cardDrag.y,
                 scale: cardScale,
                 transformOrigin: "center center",
+                touchAction: "none",
               }}
             >
               <motion.div
@@ -417,33 +400,30 @@ export function VideoEffects() {
                 }}
               >
                 {/* Resize handle for card */}
-                {effects.dragEnabled && (
-                  <div
-                    className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-se-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      const startY = e.clientY;
-                      const startScale = cardScale;
-                      const onMove = (ev: MouseEvent) => {
-                        const delta = ev.clientY - startY;
-                        setCardScale(
-                          Math.max(
-                            0.5,
-                            Math.min(2, startScale + delta * 0.005),
-                          ),
-                        );
-                      };
-                      const onUp = () => {
-                        document.removeEventListener("mousemove", onMove);
-                        document.removeEventListener("mouseup", onUp);
-                      };
-                      document.addEventListener("mousemove", onMove);
-                      document.addEventListener("mouseup", onUp);
-                    }}
-                  >
-                    <Maximize2 className="w-3 h-3 text-white" />
-                  </div>
-                )}
+                <div
+                  className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-se-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const startY = e.clientY;
+                    const startScale = cardScale;
+                    const onMove = (ev: MouseEvent) => {
+                      ev.preventDefault();
+                      const delta = ev.clientY - startY;
+                      setCardScale(
+                        Math.max(0.5, Math.min(2, startScale + delta * 0.005)),
+                      );
+                    };
+                    const onUp = () => {
+                      document.removeEventListener("mousemove", onMove);
+                      document.removeEventListener("mouseup", onUp);
+                    };
+                    document.addEventListener("mousemove", onMove);
+                    document.addEventListener("mouseup", onUp);
+                  }}
+                >
+                  <Maximize2 className="w-3 h-3 text-white" />
+                </div>
                 <div className="flex items-start gap-3">
                   {/* PFP */}
                   {displayPfp && (
@@ -492,24 +472,26 @@ export function VideoEffects() {
 
             {/* Caption area — draggable */}
             <motion.div
-              drag={effects.dragEnabled}
+              drag
               dragMomentum={false}
               dragElastic={0}
-              onDragStart={() => setIsDragging("caption")}
+              onDragStart={() => {
+                setIsDragging("caption");
+                document.body.style.userSelect = "none";
+              }}
               onDragEnd={(_, info) => {
                 setIsDragging(null);
+                document.body.style.userSelect = "";
                 const snap = 10;
                 setCaptionDrag({
                   x: Math.round((captionDrag.x + info.offset.x) / snap) * snap,
                   y: Math.round((captionDrag.y + info.offset.y) / snap) * snap,
                 });
               }}
+              animate={{ x: captionDrag.x, y: captionDrag.y }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className={`absolute left-4 right-4 z-20 ${
-                isDragging === "caption"
-                  ? "cursor-grabbing"
-                  : effects.dragEnabled
-                    ? "cursor-grab"
-                    : ""
+                isDragging === "caption" ? "cursor-grabbing" : "cursor-grab"
               } ${
                 effects.textPlacement === "top"
                   ? "top-4"
@@ -517,10 +499,7 @@ export function VideoEffects() {
                     ? "top-1/2"
                     : "bottom-4"
               }`}
-              style={{
-                translateX: captionDrag.x,
-                translateY: captionDrag.y,
-              }}
+              style={{ touchAction: "none" }}
             >
               <AnimatePresence mode="wait">
                 <motion.div
@@ -550,33 +529,33 @@ export function VideoEffects() {
                   className="flex justify-center relative group"
                 >
                   {/* Resize handle for caption */}
-                  {effects.dragEnabled && (
-                    <div
-                      className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-nw-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        const startY = e.clientY;
-                        const startScale = captionScale;
-                        const onMove = (ev: MouseEvent) => {
-                          const delta = ev.clientY - startY;
-                          setCaptionScale(
-                            Math.max(
-                              0.5,
-                              Math.min(2, startScale + delta * 0.005),
-                            ),
-                          );
-                        };
-                        const onUp = () => {
-                          document.removeEventListener("mousemove", onMove);
-                          document.removeEventListener("mouseup", onUp);
-                        };
-                        document.addEventListener("mousemove", onMove);
-                        document.addEventListener("mouseup", onUp);
-                      }}
-                    >
-                      <Maximize2 className="w-3 h-3 text-white" />
-                    </div>
-                  )}
+                  <div
+                    className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-nw-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      const startY = e.clientY;
+                      const startScale = captionScale;
+                      const onMove = (ev: MouseEvent) => {
+                        ev.preventDefault();
+                        const delta = ev.clientY - startY;
+                        setCaptionScale(
+                          Math.max(
+                            0.5,
+                            Math.min(2, startScale + delta * 0.005),
+                          ),
+                        );
+                      };
+                      const onUp = () => {
+                        document.removeEventListener("mousemove", onMove);
+                        document.removeEventListener("mouseup", onUp);
+                      };
+                      document.addEventListener("mousemove", onMove);
+                      document.addEventListener("mouseup", onUp);
+                    }}
+                  >
+                    <Maximize2 className="w-3 h-3 text-white" />
+                  </div>
                   <div style={{ scale: captionScale }}>
                     <CaptionPreview
                       text={SAMPLE_CAPTIONS[currentCaptionIndex]}
@@ -599,7 +578,7 @@ export function VideoEffects() {
         </div>
 
         {/* ── Controls Panel ───────────────────────────────────────────── */}
-        <div className="w-full lg:w-96 overflow-y-auto bg-[#0A0A0A]">
+        <div className="w-full lg:w-96 max-h-[calc(100vh-56px)] overflow-y-auto bg-[#0A0A0A]">
           <div className="p-5 space-y-6">
             {/* ── Caption Style ─────────────────────────────────────────── */}
             <div>
@@ -690,55 +669,6 @@ export function VideoEffects() {
                       onChange={(v) => update("captionOutline", v)}
                     />
                   </div>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* ── Drag & Grid ─────────────────────────────────────────── */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Move className="w-4 h-4 text-[#10b981]" />
-                <h2 className="text-sm font-semibold text-[#E8E8E8]">
-                  Position & Size
-                </h2>
-              </div>
-              <div className="space-y-3 pl-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Move className="w-4 h-4 text-[#505050]" />
-                    <span className="text-sm text-[#E8E8E8]">Drag to move</span>
-                  </div>
-                  <Toggle
-                    value={effects.dragEnabled}
-                    onChange={(v) => update("dragEnabled", v)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Grid className="w-4 h-4 text-[#505050]" />
-                    <span className="text-sm text-[#E8E8E8]">
-                      Alignment grid
-                    </span>
-                  </div>
-                  <Toggle
-                    value={effects.showGrid}
-                    onChange={(v) => update("showGrid", v)}
-                  />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => {
-                      setCardDrag({ x: 0, y: 0 });
-                      setCaptionDrag({ x: 0, y: 0 });
-                      setCardScale(1);
-                      setCaptionScale(1);
-                    }}
-                    className="flex-1 px-3 py-2 rounded-lg text-xs font-medium bg-[#1A1A1A] text-[#909090] hover:bg-[#252525] transition-colors"
-                  >
-                    Reset positions
-                  </button>
                 </div>
               </div>
             </div>
@@ -918,8 +848,8 @@ export function VideoEffects() {
               </div>
             </div>
 
-            {/* ── Bottom reset ──────────────────────────────────────────── */}
-            <div className="pt-2 pb-6">
+            {/* ── Reset buttons ────────────────────────────────────────── */}
+            <div className="pt-2 pb-6 space-y-2">
               <Button
                 variant="secondary"
                 size="sm"
@@ -928,6 +858,17 @@ export function VideoEffects() {
               >
                 Reset to Defaults
               </Button>
+              <button
+                onClick={() => {
+                  setCardDrag({ x: 0, y: 0 });
+                  setCaptionDrag({ x: 0, y: 0 });
+                  setCardScale(1);
+                  setCaptionScale(1);
+                }}
+                className="w-full px-3 py-2 rounded-lg text-xs font-medium bg-[#1A1A1A] text-[#909090] hover:bg-[#252525] transition-colors"
+              >
+                Reset Positions
+              </button>
             </div>
           </div>
         </div>
