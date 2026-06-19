@@ -571,20 +571,9 @@ export function Settings() {
                             </li>
                           </ul>
                         </div>
-                        {discordWebhook && (
-                          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
-                            <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-medium text-emerald-300">
-                                Webhook configured
-                              </p>
-                              <p className="text-[11px] text-emerald-200/60 mt-0.5">
-                                Alerts will be sent to this Discord channel when
-                                events occur.
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                        <Button onClick={saveNotificationSettings}>
+                          <Save className="w-4 h-4 mr-2" /> Save Discord Webhook
+                        </Button>
                       </CardContent>
                     </Card>
                   </motion.div>
