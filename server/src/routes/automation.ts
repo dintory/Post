@@ -1,24 +1,27 @@
 import { Router } from "express";
 import { getSupabaseClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
-import { sendDiscordAlert } from "../services/discordWebhook";
+import {
+  getUserWebhookUrl,
+  sendDiscordAlert,
+} from "../services/discordWebhook";
 
 const router = Router();
 
 // ─── Heartbeat check ────────────────────────────────────────────────────────
 
 /**
- * POST /api/automation/check
+ * GET/POST /api/automation/check
  * Called by an external cron service every 15 minutes.
- * Requires x-automation-secret header matching AUTOMATION_SECRET env var.
- * Queries all enabled schedules and triggers any that are due.
+ * Requires x-automation-secret header or ?secret= query param.
+ * Fires schedules that are due and sends a single Discord notification.
  */
 router.get("/check", handleCheck);
 router.post("/check", handleCheck);
 
 async function handleCheck(req: any, res: any) {
   const secret = req.headers["x-automation-secret"] || req.query.secret;
-  if (secret !== process.env.AUTOMATION_SECRET) {
+  if (!secret || secret !== process.env.AUTOMATION_SECRET) {
     return res
       .status(401)
       .json({ error: "Invalid or missing automation secret" });
@@ -27,26 +30,75 @@ async function handleCheck(req: any, res: any) {
   try {
     const supabase = getSupabaseClient();
     const now = new Date();
+    const currentDay = now.getUTCDay();
+    const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
 
-    // Send a webhook to every user who has one configured
-    const { data: users } = await supabase
-      .from("user_usage")
-      .select("user_id, discord_webhook_url")
-      .not("discord_webhook_url", "is", null);
+    // Fetch all enabled schedules
+    const { data: schedules, error } = await supabase
+      .from("automation_schedules")
+      .select("*")
+      .eq("enabled", true);
 
-    let sent = 0;
-
-    for (const user of users || []) {
-      await sendDiscordAlert(user.discord_webhook_url, {
-        title: "💓 Automation Heartbeat",
-        message: `Automation system check at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
-        type: "success",
-      }).catch(() => {});
-      sent++;
+    if (error) {
+      console.error("[Automation] Fetch error:", error);
+      return res.status(500).json({ error: error.message });
     }
 
-    console.log(`[Automation] Heartbeat sent to ${sent} user(s)`);
-    return res.status(200).json({ ok: true, notified: sent });
+    let triggered = 0;
+    const notifedUsers = new Set<string>();
+
+    for (const schedule of schedules || []) {
+      // Check day of week
+      if (schedule.day_of_week !== currentDay) continue;
+
+      // Parse scheduled time
+      const [h, m] = schedule.time_utc.split(":").map(Number);
+      const scheduledMinutes = h * 60 + m;
+
+      // ±10 minute tolerance window
+      if (Math.abs(currentMinutes - scheduledMinutes) > 10) continue;
+
+      // Prevent double-fire within 20 hours
+      if (schedule.last_run_at) {
+        const lastRun = new Date(schedule.last_run_at).getTime();
+        if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
+      }
+
+      // Update last_run_at
+      await supabase
+        .from("automation_schedules")
+        .update({
+          last_run_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
+        .eq("id", schedule.id);
+
+      // Collect unique users to notify (one webhook per user per cron tick)
+      notifedUsers.add(schedule.user_id);
+      triggered++;
+    }
+
+    // Send one notification per user with schedules that just fired
+    for (const userId of notifedUsers) {
+      const webhookUrl = await getUserWebhookUrl(supabase, userId);
+      if (!webhookUrl) continue;
+
+      await sendDiscordAlert(webhookUrl, {
+        title: `⏰ ${triggered} Schedule${triggered > 1 ? "s" : ""} Fired`,
+        message: `Your automation schedules were triggered at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
+        type: "warning",
+      }).catch(() => {});
+    }
+
+    if (triggered > 0) {
+      console.log(
+        `[Automation] Fired ${triggered} schedule(s) for ${notifedUsers.size} user(s)`,
+      );
+    }
+
+    return res
+      .status(200)
+      .json({ ok: true, triggered, users_notified: notifedUsers.size });
   } catch (err: any) {
     console.error("[Automation] Check error:", err);
     return res.status(500).json({ error: err.message });
@@ -55,10 +107,6 @@ async function handleCheck(req: any, res: any) {
 
 // ─── User CRUD ──────────────────────────────────────────────────────────────
 
-/**
- * GET /api/automation/schedules
- * List all schedules for the authenticated user.
- */
 router.get("/schedules", requireAuth, async (req: any, res) => {
   try {
     const supabase = getSupabaseClient(req.token);
@@ -76,10 +124,6 @@ router.get("/schedules", requireAuth, async (req: any, res) => {
   }
 });
 
-/**
- * POST /api/automation/schedules
- * Create or update a schedule for the authenticated user.
- */
 router.post("/schedules", requireAuth, async (req: any, res) => {
   const { id, day_of_week, time_utc, enabled } = req.body;
 
@@ -88,11 +132,9 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
       .status(400)
       .json({ error: "day_of_week and time_utc are required" });
   }
-
   if (day_of_week < 0 || day_of_week > 6) {
     return res.status(400).json({ error: "day_of_week must be 0-6" });
   }
-
   if (!/^\d{2}:\d{2}$/.test(time_utc)) {
     return res.status(400).json({ error: "time_utc must be in HH:mm format" });
   }
@@ -102,7 +144,6 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
     const now = new Date().toISOString();
 
     if (id) {
-      // Update existing
       const { data, error } = await supabase
         .from("automation_schedules")
         .update({
@@ -119,7 +160,6 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
       if (error) return res.status(500).json({ error: error.message });
       return res.json({ schedule: data });
     } else {
-      // Create new
       const { data, error } = await supabase
         .from("automation_schedules")
         .insert({
@@ -140,10 +180,6 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
   }
 });
 
-/**
- * DELETE /api/automation/schedules/:id
- * Delete a schedule for the authenticated user.
- */
 router.delete("/schedules/:id", requireAuth, async (req: any, res) => {
   const { id } = req.params;
 
