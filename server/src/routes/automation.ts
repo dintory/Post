@@ -105,6 +105,39 @@ async function handleCheck(req: any, res: any) {
   }
 }
 
+// ─── Test webhook ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/automation/test-webhook
+ * Send a test Discord webhook to the authenticated user.
+ */
+router.post("/test-webhook", requireAuth, async (req: any, res) => {
+  try {
+    const supabase = getSupabaseClient(req.token);
+    const webhookUrl = await getUserWebhookUrl(supabase, req.user.id);
+
+    if (!webhookUrl) {
+      return res
+        .status(404)
+        .json({
+          error: "No Discord webhook configured. Save one in Settings first.",
+        });
+    }
+
+    await sendDiscordAlert(webhookUrl, {
+      title: "🔔 Test Notification",
+      message:
+        "This is a test from Commissioner. Your webhook is working correctly!",
+      type: "success",
+    });
+
+    return res.json({ success: true, message: "Test webhook sent!" });
+  } catch (err: any) {
+    console.error("[Automation] Test webhook error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── User CRUD ──────────────────────────────────────────────────────────────
 
 router.get("/schedules", requireAuth, async (req: any, res) => {
