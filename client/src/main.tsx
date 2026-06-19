@@ -26,7 +26,15 @@ if (API_BASE) {
       typeof url === "string" &&
       (url.startsWith("/api/") || url.startsWith("/auth/"))
     ) {
-      return originalFetch(`${API_BASE}${url}`, init);
+      const token = localStorage.getItem("access_token");
+      const headers = new Headers(init?.headers);
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+      return originalFetch(`${API_BASE}${url}`, {
+        ...init,
+        headers,
+      });
     }
     return originalFetch(input, init);
   };

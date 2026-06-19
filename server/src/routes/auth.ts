@@ -58,7 +58,9 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: error.message });
   }
 
-  // Set tokens as HTTP-only cookies
+  // Return the token in the response body so the frontend can
+  // send it as an Authorization header (cross-origin compatible).
+  // Also set as cookie for same-origin / dev environments.
   if (data.session) {
     res.cookie("access_token", data.session.access_token, cookieOptions);
     res.cookie("refresh_token", data.session.refresh_token, cookieOptions);
@@ -67,6 +69,7 @@ router.post("/login", async (req, res) => {
   return res.status(200).json({
     message: "Login successful",
     user: data.user,
+    access_token: data.session?.access_token,
   });
 });
 

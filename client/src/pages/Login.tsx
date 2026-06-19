@@ -68,7 +68,7 @@ export function Login() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,25 +77,29 @@ export function Login() {
     setSuccessMsg("");
 
     try {
-      const endpoint = isLogin ? "/auth/login" : "/auth/signup";
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, rememberMe, inviteCode }),
-        // include credentials to receive HTTP-only cookies
-        credentials: "include",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Authentication failed");
-      }
-
       if (isLogin) {
-        await checkAuth();
+        await login(email, password, rememberMe);
         navigate("/dashboard");
       } else {
+        const endpoint = "/auth/signup";
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            password,
+            name,
+            rememberMe,
+            inviteCode,
+          }),
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Signup failed");
+        }
         setSuccessMsg(
           data.message ||
             "Signup successful! Please check your email to verify.",
