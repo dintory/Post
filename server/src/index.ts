@@ -7,6 +7,7 @@ import videoRoutes from "./routes/video";
 import accountRoutes from "./routes/accounts";
 import settingsRoutes from "./routes/settings";
 import youtubeRoutes from "./routes/youtube";
+import automationRoutes from "./routes/automation";
 import { ensureBackgroundVideo } from "./utils/ensureBackground";
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use("/api/video", videoRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/", youtubeRoutes);
+app.use("/api/automation", automationRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date() });

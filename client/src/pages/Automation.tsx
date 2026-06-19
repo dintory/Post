@@ -1,390 +1,364 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Calendar, 
-  Clock, 
-  Play,
-  Pause,
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Calendar,
+  Clock,
   Plus,
   Trash2,
-  Edit3,
   CheckCircle2,
-  X,
-  AlertTriangle
-} from 'lucide-react'
-import { AutomationCreator, getScheduleSummary, type AutomationConfig } from '@/components/automation/AutomationCreator'
+  AlertTriangle,
+  Globe,
+  Sun,
+  SunMoon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-const activeAutomations = [
-  {
-    id: 1,
-    name: 'Daily Tech Upload',
-    type: 'workflow',
-    status: 'active',
-    lastRun: '2 hours ago',
-    nextRun: 'Tomorrow 9:00 AM',
-    successRate: 98,
-    description: 'Auto-generate and upload tech videos daily'
-  },
-  {
-    id: 2,
-    name: 'Vlog Theme Rotation',
-    type: 'theme',
-    status: 'active',
-    lastRun: '5 hours ago',
-    nextRun: 'Next Monday',
-    successRate: 100,
-    description: 'Rotate between morning/day/evening vlog themes'
-  },
-  {
-    id: 3,
-    name: 'Gaming Highlights',
-    type: 'prompt',
-    status: 'paused',
-    lastRun: '3 days ago',
-    nextRun: 'Manual',
-    successRate: 85,
-    description: 'Auto-clip gaming highlights with AI commentary'
-  },
-  {
-    id: 4,
-    name: 'Multi-Account Posting',
-    type: 'account',
-    status: 'active',
-    lastRun: '1 hour ago',
-    nextRun: 'In 3 hours',
-    successRate: 100,
-    description: 'Cross-post content to all connected accounts'
-  },
-]
-
-type AutomationItem = {
-  id: number
-  name: string
-  type: string
-  status: string
-  lastRun: string
-  nextRun: string
-  pausedNextRun?: string
-  successRate: number
-  description: string
+interface Schedule {
+  id: string;
+  day_of_week: number;
+  time_utc: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  created_at: string;
 }
 
-type StatusFilter = 'all' | 'active' | 'paused'
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
-// ── Double-confirm delete button ───────────────────────────────────────────────
-function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
-  const [stage, setStage] = useState<'idle' | 'confirm'>('idle')
+const DAY_ICONS = [Sun, SunMoon, Sun, SunMoon, Sun, SunMoon, Globe];
 
-  // Reset if user mouses away without confirming
-  const handleBlur = () => {
-    if (stage === 'confirm') setStage('idle')
-  }
+function formatTime(timeUtc: string): string {
+  const [h, m] = timeUtc.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m.toString().padStart(2, "0")} ${period} UTC`;
+}
 
-  if (stage === 'idle') {
-    return (
-      <button
-        type="button"
-        onClick={() => setStage('confirm')}
-        title="Delete automation"
-        className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
-      >
-        <Trash2 className="w-4 h-4 text-zinc-400" />
-      </button>
-    )
-  }
-
-  return (
-    <div className="flex items-center gap-1" onMouseLeave={handleBlur}>
-      <button
-        type="button"
-        onClick={() => setStage('idle')}
-        className="p-1.5 hover:bg-zinc-800 rounded-lg transition-colors"
-        title="Cancel"
-      >
-        <X className="w-3.5 h-3.5 text-zinc-500" />
-      </button>
-      <button
-        type="button"
-        onClick={() => { setStage('idle'); onConfirm() }}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/25 transition-colors"
-        title="Confirm delete"
-      >
-        <AlertTriangle className="w-3 h-3" />
-        Delete
-      </button>
-    </div>
-  )
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return "Never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "Just now";
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export function Automation() {
-  const [showCreateDrawer, setShowCreateDrawer] = useState(false)
-  const [automations, setAutomations] = useState<AutomationItem[]>(activeAutomations)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [newDay, setNewDay] = useState(1);
+  const [newTime, setNewTime] = useState("09:00");
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  // Edit drawer state
-  const [editingAutomation, setEditingAutomation] = useState<AutomationItem | null>(null)
-  // Pre-fill config passed to AutomationCreator when editing
-  const [editInitialConfig, setEditInitialConfig] = useState<Partial<AutomationConfig> | null>(null)
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':  return 'bg-emerald-500/20 text-emerald-400'
-      case 'paused':  return 'bg-amber-500/20 text-amber-400'
-      case 'error':   return 'bg-red-500/20 text-red-400'
-      default:        return 'bg-zinc-800 text-zinc-400'
+  const fetchSchedules = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/automation/schedules", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to load schedules");
+      const data = await res.json();
+      setSchedules(data.schedules || []);
+    } catch (err) {
+      console.error("Error fetching schedules:", err);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  }, []);
 
-  // Open create drawer
-  const handleNewAutomation = () => {
-    setEditingAutomation(null)
-    setEditInitialConfig(null)
-    setShowCreateDrawer(true)
-  }
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
 
-  // Open edit drawer — pass existing data as initial config
-  const openEditDrawer = (automation: AutomationItem) => {
-    setEditingAutomation(automation)
-    // Build a partial AutomationConfig from the automation's stored description
-    // AutomationCreator will receive these as defaults
-    setEditInitialConfig({
-      name: automation.name,
-    })
-    setShowCreateDrawer(true)
-  }
-
-  const handleCloseDrawer = () => {
-    setShowCreateDrawer(false)
-    setEditingAutomation(null)
-    setEditInitialConfig(null)
-  }
-
-  // Called by AutomationCreator on finish
-  const handleSaveAutomation = (config: AutomationConfig) => {
-    if (editingAutomation) {
-      // Edit mode — update existing item
-      setAutomations(prev => prev.map(a =>
-        a.id === editingAutomation.id
-          ? {
-              ...a,
-              name: config.name,
-              nextRun: getScheduleSummary(config),
-              description: `${config.contentType === 'short' ? 'Short' : 'Video'} · ${config.themeLabel} · ${config.accountNames.join(', ')}`,
-            }
-          : a
-      ))
-    } else {
-      // Create mode — add new item
-      const newAutomation: AutomationItem = {
-        id: Date.now(),
-        name: config.name,
-        type: 'workflow',
-        status: 'active',
-        lastRun: 'Never',
-        nextRun: getScheduleSummary(config),
-        successRate: 100,
-        description: `${config.contentType === 'short' ? 'Short' : 'Video'} · ${config.themeLabel} · ${config.accountNames.join(', ')}`,
-      }
-      setAutomations(prev => [newAutomation, ...prev])
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/automation/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          day_of_week: newDay,
+          time_utc: newTime,
+          enabled: true,
+        }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const data = await res.json();
+      setSchedules((prev) => [...prev, data.schedule]);
+      setShowForm(false);
+      showToast("Schedule created!");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
     }
-    handleCloseDrawer()
-  }
+  };
 
-  const filteredAutomations = automations.filter((automation) => {
-    if (statusFilter === 'active') return automation.status === 'active'
-    if (statusFilter === 'paused') return automation.status === 'paused'
-    return true
-  })
+  const handleToggle = async (schedule: Schedule) => {
+    try {
+      const res = await fetch("/api/automation/schedules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: schedule.id,
+          day_of_week: schedule.day_of_week,
+          time_utc: schedule.time_utc,
+          enabled: !schedule.enabled,
+        }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === schedule.id ? { ...s, enabled: !s.enabled } : s,
+        ),
+      );
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
-  const toggleAutomationStatus = (id: number) => {
-    setAutomations(prev => prev.map((automation) => {
-      if (automation.id !== id) return automation
-      if (automation.status === 'active') {
-        return { ...automation, status: 'paused', pausedNextRun: automation.nextRun, nextRun: 'Manual' }
-      }
-      return { ...automation, status: 'active', nextRun: automation.pausedNextRun || automation.nextRun, pausedNextRun: undefined }
-    }))
-  }
-
-  const deleteAutomation = (id: number) => {
-    setAutomations(prev => prev.filter(a => a.id !== id))
-  }
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this schedule?")) return;
+    try {
+      const res = await fetch(`/api/automation/schedules/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      setSchedules((prev) => prev.filter((s) => s.id !== id));
+      showToast("Schedule deleted.");
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-zinc-950 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Automation</h1>
-          <p className="text-sm text-zinc-500 mt-1">Manage your automated workflows and tasks</p>
-        </div>
-        <button
-          onClick={handleNewAutomation}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-sm font-medium text-white transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          New Automation
-        </button>
-      </div>
-
-      {/* Active Automations */}
-      <div className="bg-zinc-900/50 rounded-xl p-5 border border-zinc-800/50 mb-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="pt-24 pb-12 min-h-screen bg-[#0A0A0A]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-sm font-medium text-white">Active Automations</h2>
-            <p className="text-xs text-zinc-500">Running and scheduled workflows</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500">Filter:</span>
-            {(['all', 'active', 'paused'] as StatusFilter[]).map(f => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setStatusFilter(f)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors capitalize ${
-                  statusFilter === f
-                    ? 'bg-zinc-700 text-white'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+            <h1 className="text-3xl font-bold text-white">Automation</h1>
+            <p className="text-zinc-400 mt-1">
+              Schedule videos to publish automatically
+            </p>
           </div>
         </div>
 
-        <div className="space-y-3">
-          {filteredAutomations.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-zinc-500">No automations match this filter.</p>
+        {/* Schedules Section */}
+        <div className="bg-zinc-900/50 rounded-xl border border-zinc-800/50 overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-zinc-800/50">
+            <div>
+              <h2 className="text-sm font-semibold text-white">
+                Posting Schedule
+              </h2>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Set days and times for automatic video publishing
+              </p>
+            </div>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-xs font-medium text-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Schedule
+            </button>
+          </div>
+
+          {/* Add form */}
+          <AnimatePresence>
+            {showForm && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden border-b border-zinc-800/50"
+              >
+                <div className="p-4 bg-zinc-800/20 flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                  <div className="w-full sm:w-48">
+                    <label className="block text-xs text-zinc-500 mb-1.5">
+                      Day of Week
+                    </label>
+                    <select
+                      value={newDay}
+                      onChange={(e) => setNewDay(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      {DAY_NAMES.map((name, i) => (
+                        <option key={i} value={i}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-full sm:w-40">
+                    <label className="block text-xs text-zinc-500 mb-1.5">
+                      Time (UTC)
+                    </label>
+                    <Input
+                      type="time"
+                      value={newTime}
+                      onChange={(e) => setNewTime(e.target.value)}
+                      className="bg-zinc-800 border-zinc-700 text-white h-10"
+                    />
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex-1 sm:flex-none"
+                    >
+                      {saving ? "Saving..." : "Create"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setShowForm(false)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Schedule list */}
+          {isLoading ? (
+            <div className="p-12 text-center">
+              <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-xs text-zinc-500">Loading schedules...</p>
+            </div>
+          ) : schedules.length === 0 && !showForm ? (
+            <div className="p-12 text-center">
+              <Calendar className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+              <p className="text-sm text-zinc-400 font-medium">
+                No schedules yet
+              </p>
+              <p className="text-xs text-zinc-600 mt-1">
+                Add a schedule to auto-publish videos on specific days.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-800/50">
+              {schedules.map((schedule) => {
+                const DayIcon = DAY_ICONS[schedule.day_of_week];
+                return (
+                  <div
+                    key={schedule.id}
+                    className="flex items-center justify-between px-5 py-4 hover:bg-zinc-800/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-10 h-10 rounded-lg flex items-center justify-center ${schedule.enabled ? "bg-emerald-500/20" : "bg-zinc-800"}`}
+                      >
+                        <DayIcon
+                          className={`w-5 h-5 ${schedule.enabled ? "text-emerald-400" : "text-zinc-500"}`}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-white">
+                            {DAY_NAMES[schedule.day_of_week]}
+                          </p>
+                          <span className="px-2 py-0.5 rounded text-xs font-mono bg-zinc-800 text-zinc-300">
+                            {formatTime(schedule.time_utc)}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
+                              schedule.enabled
+                                ? "bg-emerald-500/15 text-emerald-400"
+                                : "bg-zinc-700 text-zinc-500"
+                            }`}
+                          >
+                            {schedule.enabled ? "Active" : "Paused"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-500 mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Last run: {timeAgo(schedule.last_run_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggle(schedule)}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${
+                          schedule.enabled ? "bg-emerald-500" : "bg-zinc-700"
+                        }`}
+                        title={schedule.enabled ? "Pause" : "Activate"}
+                      >
+                        <div
+                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                            schedule.enabled
+                              ? "translate-x-5"
+                              : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(schedule.id)}
+                        className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
+                        title="Delete schedule"
+                      >
+                        <Trash2 className="w-4 h-4 text-zinc-500 hover:text-rose-400" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-          {filteredAutomations.map((automation) => (
-            <div
-              key={automation.id}
-              className="flex items-center justify-between p-4 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  automation.status === 'active' ? 'bg-emerald-500/20' : 'bg-amber-500/20'
-                }`}>
-                  {automation.status === 'active'
-                    ? <Play className="w-5 h-5 text-emerald-400" />
-                    : <Pause className="w-5 h-5 text-amber-400" />
-                  }
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white">{automation.name}</p>
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(automation.status)}`}>
-                      {automation.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{automation.description}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Last: {automation.lastRun}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      Next: {automation.nextRun}
-                    </span>
-                  </div>
-                </div>
-              </div>
+        </div>
 
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="flex items-center gap-1 text-sm text-white">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    {automation.successRate}%
-                  </div>
-                  <p className="text-xs text-zinc-500">Success Rate</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {/* Edit — opens full AutomationCreator drawer in edit mode */}
-                  <button
-                    type="button"
-                    onClick={() => openEditDrawer(automation)}
-                    title="Edit automation"
-                    className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
-                  >
-                    <Edit3 className="w-4 h-4 text-zinc-400" />
-                  </button>
-
-                  {/* Pause / Resume */}
-                  <button
-                    type="button"
-                    onClick={() => toggleAutomationStatus(automation.id)}
-                    title={automation.status === 'active' ? 'Pause automation' : 'Resume automation'}
-                    className="p-2 hover:bg-zinc-800 rounded-lg transition-colors"
-                  >
-                    {automation.status === 'active'
-                      ? <Pause className="w-4 h-4 text-amber-400" />
-                      : <Play  className="w-4 h-4 text-emerald-400" />
-                    }
-                  </button>
-
-                  {/* Double-confirm delete */}
-                  <DeleteButton onConfirm={() => deleteAutomation(automation.id)} />
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* External cron info */}
+        <div className="mt-6 p-4 rounded-xl bg-zinc-900/30 border border-zinc-800/50">
+          <p className="text-xs text-zinc-500 flex items-start gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-zinc-600 mt-0.5 shrink-0" />
+            <span>
+              Schedules are checked by an external cron service every 15
+              minutes. Your video will be published within ±10 minutes of the
+              scheduled time.
+            </span>
+          </p>
         </div>
       </div>
 
-      {/* Create / Edit Drawer — same component, different mode */}
+      {/* Toast */}
       <AnimatePresence>
-        {showCreateDrawer && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseDrawer}
-              className="fixed inset-0 bg-black/60 z-40"
-            />
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 h-full w-full max-w-md bg-[#0A0A0A] border-l border-[#1A1A1A] z-50 shadow-2xl flex flex-col"
-            >
-              <div className="p-6 border-b border-[#1A1A1A] shrink-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#E8E8E8]">
-                      {editingAutomation ? 'Edit Automation' : 'New Automation'}
-                    </h3>
-                    <p className="text-xs text-[#505050]">
-                      {editingAutomation
-                        ? 'Update configuration for this automation'
-                        : 'Configure type, theme, style & accounts'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleCloseDrawer}
-                    className="p-2 hover:bg-[#1A1A1A] rounded-lg transition-colors"
-                  >
-                    <X className="w-5 h-5 text-[#909090]" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 p-6 overflow-hidden">
-                <AutomationCreator
-                  onCreate={handleSaveAutomation}
-                  initialConfig={editInitialConfig}
-                  submitLabel={editingAutomation ? 'Save Changes' : 'Create Automation'}
-                />
-              </div>
-            </motion.div>
-          </>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-500 text-white px-5 py-3 rounded-lg text-sm font-medium shadow-xl"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              {toast}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
-  )
+  );
 }
