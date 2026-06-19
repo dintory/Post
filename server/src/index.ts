@@ -1,5 +1,4 @@
 import express from "express";
-import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
@@ -37,31 +36,38 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-// CORS must come before body parsers so OPTIONS preflight is handled immediately
-app.use(
-  cors({
-    origin: (origin: string | undefined, cb: any) => {
-      // Allow requests with no origin (server-to-server, curl, etc.)
-      if (!origin) return cb(null, true);
+// Manual CORS: always set headers before any processing, handle OPTIONS immediately.
+// This is more reliable than the cors() package for error responses on Render.
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "https://post-rtc8.onrender.com",
+  ...(process.env.CORS_ORIGINS || "").split(",").filter(Boolean),
+];
 
-      const allowed = [
-        "http://localhost:5173",
-        "https://post-rtc8.onrender.com",
-        ...(process.env.CORS_ORIGINS || "").split(",").filter(Boolean),
-      ];
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    const allowed =
+      origin.endsWith(".vercel.app") || ALLOWED_ORIGINS.includes(origin);
+    if (allowed) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization",
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      );
+    }
+  }
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+  next();
+});
 
-      // Allow any Vercel deployment URL (*.vercel.app)
-      if (origin.endsWith(".vercel.app")) return cb(null, true);
-
-      if (allowed.includes(origin)) return cb(null, true);
-
-      console.warn(`[CORS] Blocked origin: ${origin}`);
-      cb(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
 app.use(express.json());
 app.use(cookieParser());
 
