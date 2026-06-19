@@ -1,7 +1,28 @@
+# ─── Dependencies ──────────────────────────────────────
 node_modules
 client/node_modules
 server/node_modules
+
+# ─── Build output ──────────────────────────────────────
 server/dist
-server/.env
+client/dist
+
+# ─── Environment files ────────────────────────────────
 .env
+.env.local
+.env.development
+server/.env
+
+# ─── Agent / project config (not for production) ─────
+.agents
+.superpowers
+.vite
+docs
+
+# ─── Assets downloaded at runtime ────────────────────
 server/backgrounds/
+
+# ─── OS files ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
