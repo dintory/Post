@@ -12,7 +12,6 @@ import {
   SunMoon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface Schedule {
   id: string;
@@ -208,16 +207,48 @@ export function Automation() {
                       ))}
                     </select>
                   </div>
-                  <div className="w-full sm:w-40">
+                  <div className="w-full sm:w-56">
                     <label className="block text-xs text-zinc-500 mb-1.5">
                       Time (UTC)
                     </label>
-                    <Input
-                      type="time"
-                      value={newTime}
-                      onChange={(e) => setNewTime(e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white h-10"
-                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={newTime.split(":")[0]}
+                        onChange={(e) =>
+                          setNewTime(
+                            `${e.target.value}:${newTime.split(":")[1]}`,
+                          )
+                        }
+                        className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={String(i).padStart(2, "0")}>
+                            {String(i).padStart(2, "0")}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-zinc-500 self-center text-sm font-medium">
+                        :
+                      </span>
+                      <select
+                        value={newTime.split(":")[1]}
+                        onChange={(e) =>
+                          setNewTime(
+                            `${newTime.split(":")[0]}:${e.target.value}`,
+                          )
+                        }
+                        className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 appearance-none cursor-pointer"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <option
+                            key={i}
+                            value={String(i * 5).padStart(2, "0")}
+                          >
+                            {String(i * 5).padStart(2, "0")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <div className="flex gap-2 w-full sm:w-auto">
                     <Button
