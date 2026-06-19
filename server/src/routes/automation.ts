@@ -1,10 +1,7 @@
 import { Router } from "express";
 import { getSupabaseClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
-import {
-  getUserWebhookUrl,
-  sendDiscordAlert,
-} from "../services/discordWebhook";
+import { sendDiscordAlert } from "../services/discordWebhook";
 
 const router = Router();
 
@@ -27,117 +24,31 @@ router.post("/check", async (req, res) => {
   try {
     const supabase = getSupabaseClient();
     const now = new Date();
-    const currentDay = now.getUTCDay(); // 0=Sun, 1=Mon ... 6=Sat
-    const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
 
-    // Fetch all enabled schedules
-    const { data: schedules, error } = await supabase
-      .from("automation_schedules")
-      .select("*")
-      .eq("enabled", true);
+    // Send a webhook to every user who has one configured
+    const { data: users } = await supabase
+      .from("user_usage")
+      .select("user_id, discord_webhook_url")
+      .not("discord_webhook_url", "is", null);
 
-    if (error) {
-      console.error("[Automation] Fetch error:", error);
-      return res.status(500).json({ error: error.message });
+    let sent = 0;
+
+    for (const user of users || []) {
+      await sendDiscordAlert(user.discord_webhook_url, {
+        title: "💓 Automation Heartbeat",
+        message: `Automation system check at ${now.toISOString().replace("T", " ").slice(0, 19)} UTC.`,
+        type: "success",
+      }).catch(() => {});
+      sent++;
     }
 
-    let triggered = 0;
-
-    for (const schedule of schedules || []) {
-      // Check day of week
-      if (schedule.day_of_week !== currentDay) continue;
-
-      // Parse scheduled time
-      const [h, m] = schedule.time_utc.split(":").map(Number);
-      const scheduledMinutes = h * 60 + m;
-
-      // Allow a ±10 minute tolerance window
-      const diff = Math.abs(currentMinutes - scheduledMinutes);
-      if (diff > 10) continue;
-
-      // Prevent double-firing: skip if last_run_at is within the last 20 hours
-      if (schedule.last_run_at) {
-        const lastRun = new Date(schedule.last_run_at).getTime();
-        if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
-      }
-
-      // ── Fire the schedule notification (fire-and-forget) ─────────────
-      triggerUserSchedule(
-        supabase,
-        schedule.user_id,
-        schedule.id,
-        schedule.day_of_week,
-        schedule.time_utc,
-      ).catch((err) => {
-        console.error(
-          `[Automation] Schedule notification error for ${schedule.id}:`,
-          err,
-        );
-      });
-
-      // Update last_run_at immediately to prevent re-triggering
-      await supabase
-        .from("automation_schedules")
-        .update({
-          last_run_at: now.toISOString(),
-          updated_at: now.toISOString(),
-        })
-        .eq("id", schedule.id);
-
-      triggered++;
-    }
-
-    return res.status(200).json({ checked: true, triggered });
+    console.log(`[Automation] Heartbeat sent to ${sent} user(s)`);
+    return res.status(200).json({ ok: true, notified: sent });
   } catch (err: any) {
     console.error("[Automation] Check error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
-
-/**
- * Send a Discord notification when a schedule triggers.
- * Video publishing logic will be wired here in a future update.
- */
-async function triggerUserSchedule(
-  supabase: any,
-  userId: string,
-  scheduleId: string,
-  dayOfWeek: number,
-  timeUtc: string,
-) {
-  const webhookUrl = await getUserWebhookUrl(supabase, userId);
-  if (!webhookUrl) return;
-
-  const dayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-
-  await sendDiscordAlert(webhookUrl, {
-    title: "⏰ Automation Schedule Triggered",
-    message: `Your scheduled posting time has arrived.`,
-    type: "warning",
-    jobId: scheduleId.slice(0, 8),
-    fields: [
-      { name: "Day", value: dayNames[dayOfWeek] || "Unknown", inline: true },
-      { name: "Time (UTC)", value: timeUtc, inline: true },
-      {
-        name: "Status",
-        value: "Your schedule fired — video publishing will be added soon.",
-        inline: false,
-      },
-    ],
-  });
-
-  console.log(
-    `[Automation] Notified user ${userId} for schedule ${scheduleId}`,
-  );
-}
 
 // ─── User CRUD ──────────────────────────────────────────────────────────────
 
