@@ -421,35 +421,105 @@ export function VideoEffects() {
               className="absolute inset-0 z-30 pointer-events-none"
               style={{
                 backgroundImage:
-                  "radial-gradient(circle, rgba(255,255,255,0.35) 1.2px, transparent 1.2px)",
+                  "radial-gradient(circle, rgba(255,255,255,0.4) 1.2px, transparent 1.2px)",
                 backgroundSize: "20px 20px",
               }}
             />
-            {/* Snap guide — vertical center */}
+
+            {/* Safe-area padding guides — left & right margins */}
             <motion.div
-              animate={{
-                opacity:
-                  isDragging && Math.abs(cardDrag.y + captionDrag.y) < 15
-                    ? 0.7
-                    : 0,
-              }}
+              animate={{ opacity: isDragging ? 0.5 : 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-y-0 left-4 z-30 pointer-events-none w-px bg-white/30"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.5 : 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-y-0 right-4 z-30 pointer-events-none w-px bg-white/30"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.3 : 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-x-0 top-4 z-30 pointer-events-none h-px bg-white/20"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.3 : 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-x-0 bottom-4 z-30 pointer-events-none h-px bg-white/20"
+            />
+
+            {/* Snap guide — horizontal center (emerald) */}
+            <motion.div
+              animate={{ opacity: isDragging ? 0.7 : 0 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
               <div className="w-full h-px bg-[#10b981]/70" />
             </motion.div>
-            {/* Snap guide — horizontal center */}
+            {/* Snap guide — vertical center (emerald) */}
             <motion.div
-              animate={{
-                opacity:
-                  isDragging && Math.abs(cardDrag.x + captionDrag.x) < 15
-                    ? 0.7
-                    : 0,
-              }}
+              animate={{ opacity: isDragging ? 0.7 : 0 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
               <div className="h-full w-px bg-[#10b981]/70" />
+            </motion.div>
+
+            {/* Bounding box — on the currently dragged element */}
+            <motion.div
+              animate={{ opacity: isDragging ? 1 : 0 }}
+              transition={{ duration: 0.1 }}
+              className="absolute inset-0 z-25 pointer-events-none"
+              style={{ display: isDragging ? "block" : "none" }}
+            >
+              {/* Dashed box around card (left/right + 80px top simulate card area) */}
+              {isDragging === "card" && (
+                <div
+                  className="absolute left-4 right-4"
+                  style={{
+                    top:
+                      effects.cardPlacement === "top"
+                        ? "64px"
+                        : effects.cardPlacement === "center"
+                          ? "50%"
+                          : "auto",
+                    bottom:
+                      effects.cardPlacement === "bottom" ? "96px" : "auto",
+                    border: "1.5px dashed rgba(16,185,129,0.5)",
+                    borderRadius: "12px",
+                    height: "140px",
+                    transform:
+                      `translate(${cardDrag.x}px, ${cardDrag.y}px)` +
+                      (effects.cardPlacement === "center"
+                        ? " translateY(-50%)"
+                        : ""),
+                  }}
+                />
+              )}
+              {/* Dashed box around caption */}
+              {isDragging === "caption" && (
+                <div
+                  className="absolute left-8 right-8"
+                  style={{
+                    top:
+                      effects.textPlacement === "top"
+                        ? "16px"
+                        : effects.textPlacement === "center"
+                          ? "50%"
+                          : "auto",
+                    bottom:
+                      effects.textPlacement === "bottom" ? "16px" : "auto",
+                    border: "1.5px dashed rgba(16,185,129,0.5)",
+                    borderRadius: "8px",
+                    height: "40px",
+                    transform:
+                      `translate(${captionDrag.x}px, ${captionDrag.y}px)` +
+                      (effects.textPlacement === "center"
+                        ? " translateY(-50%)"
+                        : ""),
+                  }}
+                />
+              )}
             </motion.div>
 
             {/* Card — draggable always, snaps to 10px grid */}
@@ -554,12 +624,21 @@ export function VideoEffects() {
                       I can't believe people actually do this. I came out to my
                       car this morning and found a sticky note on my windshield.
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span>⬆</span> 2.4k
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span className="text-xs leading-none">⬆</span>
+                        <span>2.4k</span>
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span>💬</span> 89
+                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span className="text-xs leading-none">💬</span>
+                        <span>89</span>
+                      </span>
+                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span className="text-xs leading-none">🏆</span>
+                      </span>
+                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
+                        <span className="text-xs leading-none">↗</span>
+                        <span>Share</span>
                       </span>
                     </div>
                   </div>
@@ -610,7 +689,7 @@ export function VideoEffects() {
                   }
                   animate={
                     effects.captionAnimation === "pop-out"
-                      ? { scale: [1, 1.06, 1], opacity: 1 }
+                      ? { scale: 1, opacity: 1 }
                       : { x: 0, opacity: 1 }
                   }
                   exit={
@@ -622,7 +701,12 @@ export function VideoEffects() {
                           ? { scale: 0.8, opacity: 0 }
                           : { opacity: 1 }
                   }
-                  transition={{ duration: 0.35 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 25,
+                    duration: effects.captionExit === "none" ? 0.2 : 0.35,
+                  }}
                   className="flex justify-center relative group"
                 >
                   {/* Resize handle for caption */}
