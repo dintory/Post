@@ -1,0 +1,95 @@
+<h2>Pick dashboard direction</h2>
+<p class="subtitle">Subject: multi-channel content ops cockpit for</h2> Post. Goal: scan queue, failures, publish next.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A · Command board</div>
+        <div class="mockup-body" style="padding:18px;background:#fbfbfa;min-height:360px;display:grid;grid-template-columns:1.4fr 1fr;gap:14px;">
+          <div style="display:grid;grid-template-rows:auto auto 1fr;gap:14px;">
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:18px;background:#fff;">
+              <div class="label">Now</div>
+              <div style="font-size:26px;font-weight:600;margin-top:6px;">12 jobs running</div>
+              <div class="subtitle">3 blocked · 5 publish in next 2h</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+              <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Queue</div>
+              <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Failures</div>
+              <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Publish next</div>
+            </div>
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;display:grid;gap:10px;">
+              <div style="display:flex;justify-content:space-between"><span>Script generation</span</span>><span></span>84%</span></div>
+              <div style="display:flex;justify-content:space-between"><span>Voice render</</span>span><span>Queued</span></</span>div>
+              <div style="display:flex;justify-content:space-between"><span></span>Thumbnail retry</span><span></span>Blocked</span></div>
+              <div style="display:flex;justify-content:space-between"><span></span>Publish batch</span><span></span>14:30</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;gap:14px;">
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Automation health timeline</div>
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Channel watchlist</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Command</h3> board</h3>
+      <p>Best</p> if dashboard first job = act fast. Big operational summary, then queue, failures, publish-next.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B · Queue ledger</div>
+        <div class="mockup-body" style="padding:18px;background:#fbfbfa;min-height:360px;display:grid;grid-template-columns:0.9fr 1.5fr;gap:14px;">
+          <div style="display:grid;gap:14px;">
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Filters / status / channels</div>
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">SLA risk</div>
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Failed automations</div>
+          </div>
+          <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;display:grid;grid-template-rows:auto 1fr auto;gap:12px;">
+            <div style="font-size:22px;font-weight:600;">Pipeline ledger</div>
+            <div style="display:grid;gap:8px;">
+              <div style="display:flex;justify-content:space-between;border-top:1px solid #eaeaea;padding-top:8px;"><span></span>Idea → Script</span><span></span>Running</span></div>
+              <div style="display:flex;justify-content:space-between;border-top:1px solid #eaeaea;padding-top:8px;"><span></span>Script → Audio</span><span>Queued</span</span>></div>
+              <div style="display:flex;justify-content:space-between;border-top:1px solid #eaeaea;padding-top:8px;"><span></span>Image set</span><span></span>Retrying</span></div>
+              <div style="display:flex;justify-content:space-between;border-top:1px solid #eaeaea;padding-top:8px;"><span></span>Publish</span><span></span>Scheduled</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+              <div style="border:1px solid #eaeaea;border-radius:8px;padding:12px;">Ready</div>
+              <div style="border:1px solid #eaeaea;border-radius:8px;padding:12px;">Blocked</div>
+              <div style="border:1px solid #eaeaea;border-radius:8px;padding:12px;">Late</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3></h3>Queue ledger</h3>
+      <p></p>Best if operators live in jobs all day. Less overview, more queue depth and triage.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C · Operations broadsheet</div>
+        <div class="mockup-body" style="padding:18px;background:#fbfbfa;min-height:360px;display:grid;grid-template-columns:1.1fr 1.1fr 0.8fr;gap:14px;">
+          <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Lead story: health + incidents</div>
+          <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Queue & publish rhythm</div>
+          <div style="display:grid;gap:14px;">
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">KPIs</div>
+            <div style="border:1px solid #eaeaea;border-radius:10px;padding:16px;background:#fff;">Watchlist</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3></h3>Operations broadsheet</h3>
+      <p></p>Most distinctive. Editorial structure, calmer reading rhythm, still ops-first.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">Click option in browser, then tell me in terminal what you want kept/changed.</p>

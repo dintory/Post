@@ -1,0 +1,34 @@
+{
+  "id": "reddit",
+  "format": "reddit_story",
+  "overlay": {
+    "position": "top-center",
+    "width": 600,
+    "scale": 1,
+    "marginTop": 54
+  },
+  "scriptFieldMapping": {
+    "postTitle": "title",
+    "postBody": "hook",
+    "subreddit": "subreddit"
+  },
+  "defaults": {
+    "username": "throwaway_8462",
+    "subreddit": "Stories",
+    "postTitle": "Your post title goes here",
+    "postBody": "",
+    "upvotes": 42100,
+    "comments": 8342,
+    "timeAgo": "6 hours ago",
+    "theme": "light",
+    "showVerified": false,
+    "showAwards": false,
+    "avatarSrc": "",
+    "upvoteState": "none"
+  },
+  "randomize": {
+    "upvotes": { "min": 5000, "max": 85000 },
+    "comments": { "min": 500, "max": 12000 },
+    "timeAgo": ["2 hours ago", "4 hours ago", "6 hours ago", "1 day ago"]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "pov_slideshow",
+  "label": "POV Slideshow",
+  "format": "pov_slideshow",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "parameters": {
+    "temperature": 0.85,
+    "max_tokens": 4096
+  },
+  "variables": {
+    "title": {
+      "required": true,
+      "description": "The POV scenario title, e.g. 'Swat Member' or 'Billionaire CEO'"
+    },
+    "durationType": {
+      "required": false,
+      "default": "full-length (8-12 minutes)",
+      "description": "Target video length category"
+    },
+    "voiceStyle": {
+      "required": false,
+      "default": "neutral",
+      "description": "Narration tone: neutral, energetic, calm, or dramatic"
+    },
+    "pacing": {
+      "required": false,
+      "default": "normal",
+      "description": "Script pacing: slow, normal, or fast"
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are an expert YouTube scriptwriter specializing in viral POV (point-of-view) slideshow videos. You write immersive first-person narratives that hook viewers in the first 3 seconds and keep them watching until the end.\n\nRules:\n- Write in first person (\"I\", \"my\", \"me\")\n- Each slide should be 1-2 sentences of narration\n- Include vivid, cinematic image prompts for AI image generation\n- Match the requested voice style and pacing\n- Output ONLY valid JSON, no markdown fences or extra text"
+    },
+    {
+      "role": "user",
+      "content": "Write a {{durationType}} POV slideshow script for the scenario: \"{{title}}\"\n\nVoice style: {{voiceStyle}}\nPacing: {{pacing}}\n\nReturn JSON with this exact structure:\n{\n  \"title\": \"string\",\n  \"hook\": \"Opening line that grabs attention in under 3 seconds\",\n  \"sections\": [\n    {\n      \"label\": \"Morning|Afternoon|Evening|etc\",\n      \"narration\": \"What the narrator says for this slide\",\n      \"imagePrompt\": \"Detailed cinematic image prompt for AI generation\",\n      \"durationSeconds\": 8\n    }\n  ],\n  \"outro\": \"Closing line with subtle call to action\",\n  \"totalEstimatedDuration\": \"e.g. 10 minutes\",\n  \"tags\": [\"tag1\", \"tag2\", \"tag3\"]\n}\n\nInclude 8-15 slides depending on duration. Make each image prompt highly visual and specific."
+    }
+  ]
+}

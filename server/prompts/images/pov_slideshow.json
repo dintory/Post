@@ -1,0 +1,34 @@
+{
+  "id": "pov_slideshow",
+  "label": "POV Slide Image",
+  "format": "pov_slideshow",
+  "model": "google/gemini-2.5-flash-image",
+  "parameters": {
+    "temperature": 0.8
+  },
+  "image_config": {
+    "aspect_ratio": "16:9"
+  },
+  "variables": {
+    "imagePrompt": {
+      "required": true,
+      "description": "Detailed scene description from the script section"
+    },
+    "style": {
+      "required": false,
+      "default": "cinematic, photorealistic, dramatic lighting, shallow depth of field",
+      "description": "Visual style modifiers"
+    },
+    "sectionLabel": {
+      "required": false,
+      "default": "",
+      "description": "Section label for context (Morning, Evening, etc.)"
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Generate a single cinematic 16:9 image for a YouTube POV slideshow video.\n\nVisual style: {{style}}\nSection: {{sectionLabel}}\nScene: {{imagePrompt}}\n\nRequirements:\n- Photorealistic, high detail\n- No text, watermarks, or logos\n- Suitable as a full-screen video slide\n- First-person POV perspective when appropriate"
+    }
+  ]
+}

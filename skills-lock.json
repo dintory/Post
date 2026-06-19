@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "use-my-browser": {
+      "source": "xixu-me/skills",
+      "sourceType": "github",
+      "skillPath": "skills/use-my-browser/SKILL.md",
+      "computedHash": "c8c56bdd40ef33bb1848b6e051eb156c3b523f7b89edb838719962155074548f"
+    }
+  }
+}

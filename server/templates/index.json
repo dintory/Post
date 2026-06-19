@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "templates": [
+    {
+      "id": "reddit",
+      "format": "reddit_story",
+      "label": "Reddit Post Card",
+      "description": "Renders a Reddit post overlay card for story narration videos",
+      "component": "reddit/RedditCard",
+      "configFile": "reddit/config.json",
+      "usesBackgroundVideo": true
+    },
+    {
+      "id": "pov_slideshow",
+      "format": "pov_slideshow",
+      "label": "POV Slideshow",
+      "description": "Full-screen AI-generated slide images with narration",
+      "component": null,
+      "configFile": "pov_slideshow/config.json",
+      "usesBackgroundVideo": false
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "pov_slideshow",
+  "format": "pov_slideshow",
+  "slideTransition": "fade",
+  "slideDurationSeconds": 8,
+  "defaults": {
+    "voiceStyle": "neutral",
+    "imageStyle": "cinematic"
+  }
+}

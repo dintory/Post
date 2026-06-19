@@ -1,0 +1,34 @@
+{
+  "id": "reddit_story",
+  "label": "Reddit Story Scene",
+  "format": "reddit_story",
+  "model": "google/gemini-2.5-flash-image",
+  "parameters": {
+    "temperature": 0.75
+  },
+  "image_config": {
+    "aspect_ratio": "16:9"
+  },
+  "variables": {
+    "imagePrompt": {
+      "required": true,
+      "description": "Background scene description for this story beat"
+    },
+    "style": {
+      "required": false,
+      "default": "moody, cinematic, subtle, suitable as video background behind Reddit overlay",
+      "description": "Visual style modifiers"
+    },
+    "sectionLabel": {
+      "required": false,
+      "default": "",
+      "description": "Story beat label (Setup, Climax, etc.)"
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Generate a single 16:9 background image for a Reddit story YouTube video.\n\nVisual style: {{style}}\nStory beat: {{sectionLabel}}\nScene: {{imagePrompt}}\n\nRequirements:\n- Works as a blurred/subtle gameplay-style background\n- No text, Reddit UI, or watermarks\n- Atmospheric and mood-appropriate for the narration\n- 16:9 landscape composition"
+    }
+  ]
+}

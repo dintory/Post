@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "provider": "openrouter",
+  "defaultModel": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "defaultImageModel": "google/gemini-2.5-flash-image",
+  "prompts": [
+    {
+      "id": "pov_slideshow",
+      "file": "pov_slideshow.json",
+      "description": "First-person POV day-in-the-life slideshow scripts with image prompts"
+    },
+    {
+      "id": "reddit_story",
+      "file": "reddit_story.json",
+      "description": "Reddit post narration scripts with dramatic story beats"
+    }
+  ],
+  "imagePrompts": {
+    "index": "images/index.json",
+    "directory": "images/"
+  }
+}
