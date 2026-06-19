@@ -355,6 +355,33 @@ export function VideoEffects() {
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
 
+            {/* Alignment grid — only visible while dragging */}
+            <motion.div
+              animate={{ opacity: isDragging ? 1 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 z-30 pointer-events-none"
+              style={{
+                backgroundImage:
+                  "linear-gradient(rgba(255,255,255,0.06) 0.5px, transparent 0.5px), linear-gradient(90deg, rgba(255,255,255,0.06) 0.5px, transparent 0.5px)",
+                backgroundSize: "20px 20px",
+              }}
+            />
+            {/* Center crosshair */}
+            <motion.div
+              animate={{ opacity: isDragging ? 0.3 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
+            >
+              <div
+                className="w-full h-px bg-white/20"
+                style={{ position: "absolute" }}
+              />
+              <div
+                className="h-full w-px bg-white/20"
+                style={{ position: "absolute" }}
+              />
+            </motion.div>
+
             {/* Card — draggable always, snaps to 10px grid */}
             <motion.div
               drag
@@ -737,12 +764,13 @@ export function VideoEffects() {
                   <Dropdown
                     options={PLACEMENT_OPTIONS}
                     value={effects.cardPlacement}
-                    onChange={(v) =>
+                    onChange={(v) => {
                       update(
                         "cardPlacement",
                         v as VideoEffectsState["cardPlacement"],
-                      )
-                    }
+                      );
+                      setCardDrag({ x: 0, y: 0 });
+                    }}
                   />
                 </SettingRow>
               </div>
@@ -837,12 +865,13 @@ export function VideoEffects() {
                   <Dropdown
                     options={PLACEMENT_OPTIONS}
                     value={effects.textPlacement}
-                    onChange={(v) =>
+                    onChange={(v) => {
                       update(
                         "textPlacement",
                         v as VideoEffectsState["textPlacement"],
-                      )
-                    }
+                      );
+                      setCaptionDrag({ x: 0, y: 0 });
+                    }}
                   />
                 </SettingRow>
               </div>
