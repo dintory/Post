@@ -1,8 +1,0 @@
-# POV slideshow background videos
-
-Optional ambient background loops for POV slideshow format.
-
-Expected files (see `../index.json`):
-- `ambient-city.mp4`
-
-Most POV videos use full-screen AI slides instead of background footage.
