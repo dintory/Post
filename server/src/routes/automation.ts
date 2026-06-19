@@ -13,8 +13,11 @@ const router = Router();
  * Requires x-automation-secret header matching AUTOMATION_SECRET env var.
  * Queries all enabled schedules and triggers any that are due.
  */
-router.post("/check", async (req, res) => {
-  const secret = req.headers["x-automation-secret"];
+router.get("/check", handleCheck);
+router.post("/check", handleCheck);
+
+async function handleCheck(req: any, res: any) {
+  const secret = req.headers["x-automation-secret"] || req.query.secret;
   if (secret !== process.env.AUTOMATION_SECRET) {
     return res
       .status(401)
@@ -48,7 +51,7 @@ router.post("/check", async (req, res) => {
     console.error("[Automation] Check error:", err);
     return res.status(500).json({ error: err.message });
   }
-});
+}
 
 // ─── User CRUD ──────────────────────────────────────────────────────────────
 
