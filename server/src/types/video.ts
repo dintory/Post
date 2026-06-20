@@ -24,6 +24,10 @@ export interface VideoGenerationJob {
   /** Reddit card styling configuration, stats, and metadata */
   redditConfig?: any;
   description?: string;
+  /** If true, automatically upload the generated video to YouTube */
+  autoUpload?: boolean;
+  /** YouTube OAuth refresh token for auto-upload */
+  refreshToken?: string;
   /** Authenticated Supabase JWT token to run DB operations under the user session */
   token?: string;
 }

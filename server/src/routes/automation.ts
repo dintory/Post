@@ -115,11 +115,30 @@ async function handleCheck(req: any, res: any) {
           const autoTitle = schedule.label
             ? `${schedule.label} #${Math.floor(Date.now() / 1000)}`
             : `Automated Video #${Math.floor(Date.now() / 1000)}`;
+
+          // Fetch the user's YouTube refresh token for auto-upload
+          let ytRefreshToken: string | null = null;
+          try {
+            const { data: ytAccount } = await supabase
+              .from("youtube_accounts")
+              .select("refresh_token")
+              .eq("user_id", schedule.user_id)
+              .not("refresh_token", "is", null)
+              .maybeSingle();
+            ytRefreshToken = ytAccount?.refresh_token || null;
+          } catch {
+            console.warn(
+              `[Automation] Could not fetch YouTube token for user ${schedule.user_id}`,
+            );
+          }
+
           await runVideoPipeline({
             userId: schedule.user_id,
             title: autoTitle,
             format: "reddit_story",
             token: serviceRoleKey,
+            autoUpload: true,
+            refreshToken: ytRefreshToken || undefined,
           });
           console.log(
             `[Automation] Pipeline triggered for schedule ${schedule.id}`,

@@ -69,6 +69,8 @@ export const runVideoPipeline = async (
     script: preGeneratedScript,
     redditConfig,
     description,
+    autoUpload,
+    refreshToken: ytRefreshToken,
   } = job;
   const now = new Date().toISOString();
 
@@ -363,6 +365,102 @@ export const runVideoPipeline = async (
                 `[Pipeline] Thumbnail extraction/upload failed:`,
                 thumbErr,
               );
+            }
+
+            // ── 6b. Auto-upload to YouTube if requested ──────────────────
+            if (autoUpload && ytRefreshToken && fs.existsSync(finalPath)) {
+              try {
+                const { uploadVideo, CATEGORY_MAP } =
+                  await import("./youtubeService");
+                const { getUserWebhookUrl, sendDiscordAlert } =
+                  await import("./discordWebhook");
+
+                // Fetch user's video settings for upload options
+                let uploadOptions: any = { privacyStatus: "private" };
+                const { data: settings } = await supabase
+                  .from("user_usage")
+                  .select("video_settings")
+                  .eq("user_id", userId)
+                  .maybeSingle();
+
+                if (settings?.video_settings) {
+                  const vs = settings.video_settings;
+                  uploadOptions.privacyStatus = vs.privacy || "private";
+                  uploadOptions.categoryId =
+                    CATEGORY_MAP[vs.category] || undefined;
+                  uploadOptions.defaultLanguage = vs.language || undefined;
+
+                  // Build description from template
+                  const descTemplate = vs.description || "";
+                  if (descTemplate) {
+                    uploadOptions.description = descTemplate.replace(
+                      /{title}/g,
+                      title,
+                    );
+                  }
+                }
+
+                const finalDesc =
+                  uploadOptions.description || description || title;
+
+                console.log(
+                  `[Pipeline] Auto-uploading "${title}" to YouTube...`,
+                );
+                const result = await uploadVideo(
+                  finalPath,
+                  title,
+                  finalDesc,
+                  ytRefreshToken,
+                  uploadOptions,
+                );
+                console.log(
+                  `[Pipeline] YouTube upload complete: ${result.videoUrl}`,
+                );
+
+                // Update the queue record with YouTube info
+                await supabase
+                  .from("video_queue")
+                  .update({
+                    yt_video_id: result.videoId,
+                    yt_video_url: result.videoUrl,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", recordId);
+
+                // Send success notification
+                const webhookUrl = await getUserWebhookUrl(supabase, userId);
+                await sendDiscordAlert(webhookUrl, {
+                  title: `📤 Auto-Published: ${title}`,
+                  message: `Video was automatically uploaded to YouTube.`,
+                  type: "success",
+                  jobId: recordId,
+                  fields: [
+                    {
+                      name: "YouTube URL",
+                      value: result.videoUrl,
+                      inline: false,
+                    },
+                  ],
+                }).catch(() => {});
+              } catch (ytErr: any) {
+                console.error(
+                  `[Pipeline] Auto-upload to YouTube failed:`,
+                  ytErr,
+                );
+                // Send failure notification but don't fail the pipeline
+                try {
+                  const { getUserWebhookUrl, sendDiscordAlert } =
+                    await import("./discordWebhook");
+                  const webhookUrl = await getUserWebhookUrl(supabase, userId);
+                  await sendDiscordAlert(webhookUrl, {
+                    title: `YouTube Upload Failed: ${title}`,
+                    message:
+                      ytErr?.message || "Unknown error during auto-upload",
+                    type: "failure",
+                    jobId: recordId,
+                  }).catch(() => {});
+                } catch {}
+              }
             }
 
             // Delete local compiled file to save server space
