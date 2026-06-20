@@ -28,6 +28,14 @@ export interface VideoGenerationJob {
   autoUpload?: boolean;
   /** YouTube OAuth refresh token for auto-upload */
   refreshToken?: string;
+  /** Caption text color in hex (e.g. "#FFFFFF") */
+  captionColor?: string;
+  /** Whether caption outline is enabled */
+  captionOutlineEnabled?: boolean;
+  /** Caption outline width (1-8) */
+  captionOutlineWidth?: number;
+  /** Vertical placement of captions */
+  textPlacement?: "top" | "center" | "bottom";
   /** Authenticated Supabase JWT token to run DB operations under the user session */
   token?: string;
 }

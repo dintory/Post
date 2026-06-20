@@ -134,6 +134,7 @@ async function handleCheck(req: any, res: any) {
 
           // Fetch user's saved effects settings for the reddit card config
           let effectsRedditConfig: any = {};
+          let effectsCapture: any = {};
           try {
             const { data: userSettings } = await supabase
               .from("user_usage")
@@ -143,6 +144,7 @@ async function handleCheck(req: any, res: any) {
 
             const effects = userSettings?.video_settings?.effects;
             if (effects) {
+              effectsCapture = effects;
               if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
                 effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
               }
@@ -170,6 +172,10 @@ async function handleCheck(req: any, res: any) {
             title: autoTitle,
             format: "reddit_story",
             redditConfig: effectsRedditConfig,
+            captionColor: effectsCapture.captionColor,
+            captionOutlineEnabled: effectsCapture.captionOutline,
+            captionOutlineWidth: effectsCapture.captionOutlineWidth,
+            textPlacement: effectsCapture.textPlacement,
             token: serviceRoleKey,
             autoUpload: true,
             refreshToken: ytRefreshToken || undefined,

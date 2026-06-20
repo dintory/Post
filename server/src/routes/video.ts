@@ -208,6 +208,7 @@ router.post("/process", requireAuth, async (req: any, res) => {
   try {
     // Fetch user's saved effects settings and inject into reddit config
     let effectsRedditConfig = redditConfig || {};
+    let effectsCapture: any = {};
     try {
       const { data: userSettings } = await getSupabaseClient(req.token)
         .from("user_usage")
@@ -217,6 +218,7 @@ router.post("/process", requireAuth, async (req: any, res) => {
 
       const effects = userSettings?.video_settings?.effects;
       if (effects) {
+        effectsCapture = effects;
         // Inject PFP avatar URL
         if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
           effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
@@ -254,6 +256,10 @@ router.post("/process", requireAuth, async (req: any, res) => {
       script,
       description,
       redditConfig: effectsRedditConfig,
+      captionColor: effectsCapture.captionColor,
+      captionOutlineEnabled: effectsCapture.captionOutline,
+      captionOutlineWidth: effectsCapture.captionOutlineWidth,
+      textPlacement: effectsCapture.textPlacement,
       token: req.token,
     });
 

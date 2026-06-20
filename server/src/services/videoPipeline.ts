@@ -71,6 +71,10 @@ export const runVideoPipeline = async (
     description,
     autoUpload,
     refreshToken: ytRefreshToken,
+    captionColor,
+    captionOutlineEnabled,
+    captionOutlineWidth,
+    textPlacement,
   } = job;
   const now = new Date().toISOString();
 
@@ -251,6 +255,30 @@ export const runVideoPipeline = async (
               return `${hours}:${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(centiseconds, 2)}`;
             };
 
+            // Build ASS style from effects settings
+            const hexToAssColor = (hex: string): string => {
+              // Convert "#RRGGBB" to ASS "&H00BBGGRR"
+              const c = hex.replace("#", "");
+              const r = c.slice(0, 2);
+              const g = c.slice(2, 4);
+              const b = c.slice(4, 6);
+              return `&H00${b}${g}${r}`;
+            };
+
+            const textColor = captionColor
+              ? hexToAssColor(captionColor)
+              : "&H00FFFFFF";
+            const outlineThickness =
+              captionOutlineEnabled && captionOutlineWidth
+                ? Math.round(captionOutlineWidth * 2.5)
+                : 0;
+            const outlineColor = captionOutlineEnabled
+              ? "&H00000000"
+              : "&H00FFFFFF";
+            // ASS alignment: 2=bottom center, 5=center, 8=top center
+            const assAlignment =
+              textPlacement === "top" ? 8 : textPlacement === "bottom" ? 2 : 5;
+
             const assLines: string[] = [
               `[Script Info]`,
               `ScriptType: v4.00+`,
@@ -260,7 +288,7 @@ export const runVideoPipeline = async (
               ``,
               `[V4+ Styles]`,
               `Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`,
-              `Style: Default,Impact,100,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,10,0,5,0,0,0,1`,
+              `Style: Default,Impact,100,${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
               ``,
               `[Events]`,
               `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`,
