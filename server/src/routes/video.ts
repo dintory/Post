@@ -228,12 +228,25 @@ router.post("/process", requireAuth, async (req: any, res) => {
       req.body.effects || (await fetchEffectsFromDb(req)) || {};
     let effectsRedditConfig = { ...(redditConfig || {}) };
 
+    console.log(
+      "[DEBUG:VIDEO] Effects from request:",
+      JSON.stringify(effectsCapture, null, 2),
+    );
+    console.log(
+      "[DEBUG:VIDEO] Initial redditConfig from body:",
+      JSON.stringify(redditConfig, null, 2),
+    );
+
     // Inject PFP avatar URL
     if (
       effectsCapture.pfpStyle === "default" &&
       effectsCapture.selectedPfpUrl
     ) {
       effectsRedditConfig.avatarSrc = effectsCapture.selectedPfpUrl;
+      console.log(
+        "[DEBUG:VIDEO] Set avatarSrc to:",
+        effectsCapture.selectedPfpUrl,
+      );
     }
     // Inject card placement (overlay.marginTop)
     if (effectsCapture.cardPlacement) {
@@ -247,7 +260,33 @@ router.post("/process", requireAuth, async (req: any, res) => {
         ...(effectsRedditConfig.overlay || {}),
         marginTop,
       };
+      console.log(
+        "[DEBUG:VIDEO] Set card placement:",
+        effectsCapture.cardPlacement,
+        "→ marginTop:",
+        marginTop,
+      );
     }
+
+    console.log(
+      "[DEBUG:VIDEO] Final effectsRedditConfig:",
+      JSON.stringify(effectsRedditConfig, null, 2),
+    );
+    console.log(
+      "[DEBUG:VIDEO] Caption fields:",
+      JSON.stringify(
+        {
+          captionColor: effectsCapture.captionColor,
+          captionOutlineEnabled: effectsCapture.captionOutline,
+          captionOutlineWidth: effectsCapture.captionOutlineWidth,
+          textPlacement: effectsCapture.textPlacement,
+          captionAnimation: effectsCapture.captionAnimation,
+          captionExit: effectsCapture.captionExit,
+        },
+        null,
+        2,
+      ),
+    );
 
     const { jobId } = await runVideoPipeline({
       userId: req.user.id,

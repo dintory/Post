@@ -199,9 +199,21 @@ export const runVideoPipeline = async (
         {
           const svgPath = path.join(tempDir, `${recordId}_card.svg`);
           overlayPngPath = path.join(tempDir, `${recordId}_card.png`);
+          console.log(
+            "[DEBUG:PIPELINE] redditConfig received:",
+            JSON.stringify(redditConfig, null, 2),
+          );
           const resolvedRedditConfig = redditConfig
             ? resolveRedditCardConfig(redditConfig)
             : resolveRedditCardConfig(buildRedditCardConfig(script));
+          console.log(
+            "[DEBUG:PIPELINE] resolvedRedditConfig:",
+            JSON.stringify(resolvedRedditConfig, null, 2),
+          );
+          console.log(
+            "[DEBUG:PIPELINE] overlay.marginTop in resolved:",
+            resolvedRedditConfig?.overlay?.marginTop,
+          );
           generateRedditCardSvg(resolvedRedditConfig, svgPath);
           await svgToPng(svgPath, overlayPngPath);
           cleanupFiles(svgPath); // SVG no longer needed
@@ -256,6 +268,22 @@ export const runVideoPipeline = async (
 
               return `${hours}:${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(centiseconds, 2)}`;
             };
+
+            console.log(
+              "[DEBUG:PIPELINE] Caption fields for ASS:",
+              JSON.stringify(
+                {
+                  captionColor,
+                  captionOutlineEnabled,
+                  captionOutlineWidth,
+                  textPlacement,
+                  captionAnimation,
+                  captionExit,
+                },
+                null,
+                2,
+              ),
+            );
 
             // Build ASS style from effects settings
             const hexToAssColor = (hex: string): string => {

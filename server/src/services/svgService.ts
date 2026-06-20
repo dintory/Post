@@ -272,6 +272,18 @@ export const generateRedditCardSvg = (
   base64Regular?: string,
   base64Bold?: string,
 ): void => {
+  console.log(
+    "[DEBUG:SVG] generateRedditCardSvg called with config:",
+    JSON.stringify(
+      {
+        avatarSrc: config.avatarSrc,
+        overlay: config.overlay,
+      },
+      null,
+      2,
+    ),
+  );
+
   const W = 1080;
   const H = 1920;
   const BASE_CARD_WIDTH = 560;
