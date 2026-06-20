@@ -36,6 +36,10 @@ export interface VideoGenerationJob {
   captionOutlineWidth?: number;
   /** Vertical placement of captions */
   textPlacement?: "top" | "center" | "bottom";
+  /** Caption entrance animation style */
+  captionAnimation?: "pop-out" | "linear" | "slide" | "fade";
+  /** Caption exit animation style */
+  captionExit?: "fade" | "slide-down" | "scale-down" | "none";
   /** Authenticated Supabase JWT token to run DB operations under the user session */
   token?: string;
 }

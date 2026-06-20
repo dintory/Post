@@ -176,6 +176,8 @@ async function handleCheck(req: any, res: any) {
             captionOutlineEnabled: effectsCapture.captionOutline,
             captionOutlineWidth: effectsCapture.captionOutlineWidth,
             textPlacement: effectsCapture.textPlacement,
+            captionAnimation: effectsCapture.captionAnimation,
+            captionExit: effectsCapture.captionExit,
             token: serviceRoleKey,
             autoUpload: true,
             refreshToken: ytRefreshToken || undefined,

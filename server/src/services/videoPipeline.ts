@@ -75,6 +75,8 @@ export const runVideoPipeline = async (
     captionOutlineEnabled,
     captionOutlineWidth,
     textPlacement,
+    captionAnimation,
+    captionExit,
   } = job;
   const now = new Date().toISOString();
 
@@ -294,6 +296,49 @@ export const runVideoPipeline = async (
               `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`,
             ];
 
+            // Build ASS animation tags based on effects
+            // ASS timing units: \fad uses milliseconds, \move and \t use CENTISECONDS
+            const FAD_MS = 250; // ms for \fad
+            const MOVE_CS = 25; // cs for \move and \t (250ms = 25cs)
+
+            /** Build the ASS override tags for entrance animation */
+            const getEntranceTag = (): string => {
+              switch (captionAnimation) {
+                case "fade":
+                  return `\\fad(${FAD_MS},0)`;
+                case "slide":
+                  // Start 300px right (840+300=1140), slide to center (540)
+                  return `\\move(840,0,540,0,0,${MOVE_CS})`;
+                case "pop-out":
+                  // Initial 130% scale, animate to 100% over MOVE_CS centiseconds
+                  return `\\fscx130\\fscy130\\t(0,${MOVE_CS},\\fscx100\\fscy100)`;
+                default:
+                  return ""; // linear — no animation
+              }
+            };
+
+            /** Build the ASS override tags for exit animation */
+            const getExitTag = (): string => {
+              switch (captionExit) {
+                case "fade":
+                  return `\\fad(0,${FAD_MS})`;
+                case "slide-down":
+                  // Default fallback (per-line timing used in loop)
+                  return `\\move(540,0,540,40,0,${MOVE_CS})`;
+                case "scale-down":
+                  // Animate to 0% scale
+                  return `\\t(0,${MOVE_CS},\\fscx10\\fscy10)`;
+                default:
+                  return ""; // "none" — no animation
+              }
+            };
+
+            const entranceTag = getEntranceTag();
+            const exitTag = getExitTag();
+            // Combine tags: entrance prelude + exit suffix
+            const animPrelude = entranceTag || "";
+            const animSuffix = exitTag || "";
+
             const wordsPerCaption = 1;
 
             for (let i = 0; i < words.length; i += wordsPerCaption) {
@@ -315,12 +360,26 @@ export const runVideoPipeline = async (
                 endTimeMs = startTimeMs + 400;
               }
 
+              // For exit animations, animate in the last MOVE_CS centiseconds of the line
+              const totalMs = endTimeMs - startTimeMs;
+              const totalCs = Math.floor(totalMs / 10);
+              let exitTagTimed = "";
+              if (captionExit === "slide-down") {
+                const animStart = Math.max(0, totalCs - MOVE_CS);
+                exitTagTimed = `\\move(540,0,540,40,${animStart},${totalCs})`;
+              } else if (captionExit === "scale-down") {
+                const animStart = Math.max(0, totalCs - MOVE_CS);
+                exitTagTimed = `\\t(${animStart},${totalCs},\\fscx10\\fscy10)`;
+              } else {
+                exitTagTimed = animSuffix; // \fad works regardless of timing
+              }
+
               const captionText = chunk
                 .map((w) => w.value)
                 .join(" ")
                 .toUpperCase();
               assLines.push(
-                `Dialogue: 0,${formatAssTime(startTimeMs)},${formatAssTime(endTimeMs)},Default,,0,0,0,,${captionText}`,
+                `Dialogue: 0,${formatAssTime(startTimeMs)},${formatAssTime(endTimeMs)},Default,,0,0,0,,${animPrelude}${captionText}${exitTagTimed}`,
               );
             }
 

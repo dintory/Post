@@ -260,6 +260,8 @@ router.post("/process", requireAuth, async (req: any, res) => {
       captionOutlineEnabled: effectsCapture.captionOutline,
       captionOutlineWidth: effectsCapture.captionOutlineWidth,
       textPlacement: effectsCapture.textPlacement,
+      captionAnimation: effectsCapture.captionAnimation,
+      captionExit: effectsCapture.captionExit,
       token: req.token,
     });
 
