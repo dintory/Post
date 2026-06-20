@@ -305,13 +305,11 @@ export const runVideoPipeline = async (
             const getEntranceTag = (): string => {
               switch (captionAnimation) {
                 case "fade":
-                  return `\\fad(${FAD_MS},0)`;
+                  return `{\\fad(${FAD_MS},0)}`;
                 case "slide":
-                  // Start 300px right (840+300=1140), slide to center (540)
-                  return `\\move(840,0,540,0,0,${MOVE_CS})`;
+                  return `{\\move(840,0,540,0,0,${MOVE_CS})}`;
                 case "pop-out":
-                  // Initial 130% scale, animate to 100% over MOVE_CS centiseconds
-                  return `\\fscx130\\fscy130\\t(0,${MOVE_CS},\\fscx100\\fscy100)`;
+                  return `{\\fscx130\\fscy130\\t(0,${MOVE_CS},\\fscx100\\fscy100)}`;
                 default:
                   return ""; // linear — no animation
               }
@@ -321,13 +319,11 @@ export const runVideoPipeline = async (
             const getExitTag = (): string => {
               switch (captionExit) {
                 case "fade":
-                  return `\\fad(0,${FAD_MS})`;
+                  return `{\\fad(0,${FAD_MS})}`;
                 case "slide-down":
-                  // Default fallback (per-line timing used in loop)
-                  return `\\move(540,0,540,40,0,${MOVE_CS})`;
+                  return `{\\move(540,0,540,40,0,${MOVE_CS})}`;
                 case "scale-down":
-                  // Animate to 0% scale
-                  return `\\t(0,${MOVE_CS},\\fscx10\\fscy10)`;
+                  return `{\\t(0,${MOVE_CS},\\fscx10\\fscy10)}`;
                 default:
                   return ""; // "none" — no animation
               }
@@ -366,10 +362,10 @@ export const runVideoPipeline = async (
               let exitTagTimed = "";
               if (captionExit === "slide-down") {
                 const animStart = Math.max(0, totalCs - MOVE_CS);
-                exitTagTimed = `\\move(540,0,540,40,${animStart},${totalCs})`;
+                exitTagTimed = `{\\move(540,0,540,40,${animStart},${totalCs})}`;
               } else if (captionExit === "scale-down") {
                 const animStart = Math.max(0, totalCs - MOVE_CS);
-                exitTagTimed = `\\t(${animStart},${totalCs},\\fscx10\\fscy10)`;
+                exitTagTimed = `{\\t(${animStart},${totalCs},\\fscx10\\fscy10)}`;
               } else {
                 exitTagTimed = animSuffix; // \fad works regardless of timing
               }
