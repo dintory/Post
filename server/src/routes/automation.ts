@@ -149,12 +149,13 @@ async function handleCheck(req: any, res: any) {
                 effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
               }
               if (effects.cardPlacement) {
+                // Values scaled from preview (360×640) to final output (1080×1920)
                 const marginTop =
                   effects.cardPlacement === "top"
-                    ? 54
+                    ? 80
                     : effects.cardPlacement === "center"
-                      ? 380
-                      : 720;
+                      ? 540
+                      : 1000;
                 effectsRedditConfig.overlay = {
                   ...(effectsRedditConfig.overlay || {}),
                   marginTop,

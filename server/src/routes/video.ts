@@ -250,12 +250,14 @@ router.post("/process", requireAuth, async (req: any, res) => {
     }
     // Inject card placement (overlay.marginTop)
     if (effectsCapture.cardPlacement) {
+      // Values scaled from preview (360×640) to final output (1080×1920)
+      // Preview "top-16" = 64/640 → 192/1920, "bottom-24" = 96 from bottom → ~1150
       const marginTop =
         effectsCapture.cardPlacement === "top"
-          ? 54
+          ? 80
           : effectsCapture.cardPlacement === "center"
-            ? 380
-            : 720;
+            ? 540
+            : 1000;
       effectsRedditConfig.overlay = {
         ...(effectsRedditConfig.overlay || {}),
         marginTop,

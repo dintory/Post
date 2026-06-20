@@ -292,10 +292,22 @@ export function VideoEffects() {
     (async () => {
       try {
         const res = await fetch("/api/settings", { credentials: "include" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn("[Effects] Load settings failed:", res.status);
+          return;
+        }
         const { settings } = await res.json();
         const saved = settings?.video_settings?.effects;
+        console.log("[Effects] Raw saved data:", JSON.stringify(saved));
         if (saved) {
+          console.log(
+            "[Effects] cardPlacement from server:",
+            saved.cardPlacement,
+          );
+          console.log(
+            "[Effects] textPlacement from server:",
+            saved.textPlacement,
+          );
           // Merge saved over defaults (only known keys)
           setEffects((prev) => {
             const merged = { ...prev };
@@ -308,8 +320,12 @@ export function VideoEffects() {
             }
             return merged;
           });
+        } else {
+          console.warn("[Effects] No saved effects found in response");
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[Effects] Load settings error:", err);
+      }
     })();
   }, []);
 
@@ -323,6 +339,9 @@ export function VideoEffects() {
 
   // ── Save effects to server ─────────────────────────────────────────────
   const handleSave = useCallback(async () => {
+    console.log("[Effects] Saving effects:", JSON.stringify(effects));
+    console.log("[Effects] cardPlacement in save:", effects.cardPlacement);
+    console.log("[Effects] textPlacement in save:", effects.textPlacement);
     try {
       const res = await fetch("/api/settings", {
         method: "PATCH",
