@@ -1,5 +1,6 @@
 import fs from "fs";
 import sharp from "sharp";
+import { getCardLayout } from "../shared/layoutEngine";
 
 function esc(str: string): string {
   return str
@@ -286,15 +287,16 @@ export const generateRedditCardSvg = (
 
   const W = 1080;
   const H = 1920;
-  const BASE_CARD_WIDTH = 560;
 
   const overlay = config.overlay ?? {};
-  const requestedWidth = Math.round(
-    (overlay.width ?? 560) * Math.max(0.85, Math.min(overlay.scale ?? 1, 1.15)),
+
+  // Use shared layout engine for card width and x position
+  const { width: cardWidth, x: cardX } = getCardLayout(
+    { width: W, height: H },
+    "top",
+    0,
   );
-  const cardWidth = Math.max(520, Math.min(680, requestedWidth));
-  const ui = cardWidth / BASE_CARD_WIDTH;
-  const cardX = Math.round((W - cardWidth) / 2);
+  const ui = cardWidth / 560;
   const cardY = Math.round(overlay.marginTop ?? 54);
 
   const pad = 14 * ui;

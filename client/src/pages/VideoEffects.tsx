@@ -16,6 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Separator } from "@/components/ui/separator";
+import {
+  getCardLayout,
+  getCaptionY,
+  type VerticalPlacement,
+} from "@/shared/layoutEngine";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -285,6 +290,30 @@ export function VideoEffects() {
   const [cardScale, setCardScale] = useState(1);
   const [isDragging, setIsDragging] = useState<string | null>(null);
 
+  // ── Shared layout engine (preview = 360x640, full frame = 1080x1920) ──
+  const PREVIEW_W = 360;
+  const PREVIEW_H = 640;
+  const FULL_W = 1080;
+  const FULL_H = 1920;
+
+  // Estimate card height at full resolution for preview positioning
+  const EST_CARD_HEIGHT = 400;
+
+  const cardLayout = getCardLayout(
+    { width: FULL_W, height: FULL_H },
+    effects.cardPlacement as VerticalPlacement,
+    EST_CARD_HEIGHT,
+  );
+  const cardXpx = Math.round((cardLayout.x * PREVIEW_W) / FULL_W);
+  const cardYPx = Math.round((cardLayout.y * PREVIEW_H) / FULL_H);
+  const cardWidthPx = Math.round((cardLayout.width * PREVIEW_W) / FULL_W);
+
+  const captionY = getCaptionY(
+    { width: FULL_W, height: FULL_H },
+    effects.textPlacement as VerticalPlacement,
+  );
+  const captionYPx = Math.round((captionY * PREVIEW_H) / FULL_H);
+
   // ── Load saved effects on mount ────────────────────────────────────────
   const [savedToast, setSavedToast] = useState(false);
 
@@ -318,6 +347,11 @@ export function VideoEffects() {
                 (merged as any)[k] = saved[k];
               }
             }
+            // Explicitly restore cardPlacement and textPlacement
+            if (saved.cardPlacement !== undefined)
+              merged.cardPlacement = saved.cardPlacement;
+            if (saved.textPlacement !== undefined)
+              merged.textPlacement = saved.textPlacement;
             return merged;
           });
         } else {
@@ -500,18 +534,15 @@ export function VideoEffects() {
               }}
               animate={{ x: cardDrag.x, y: cardDrag.y }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
-              className={`absolute left-4 right-4 z-10 ${
+              className={`absolute z-10 ${
                 isDragging === "card"
                   ? "cursor-grabbing ring-2 ring-[#10b981]/40 ring-inset rounded-xl"
                   : "cursor-grab"
-              } ${
-                effects.cardPlacement === "top"
-                  ? "top-16"
-                  : effects.cardPlacement === "center"
-                    ? "top-1/2 -translate-y-1/2"
-                    : "bottom-24"
               }`}
               style={{
+                left: `${cardXpx}px`,
+                top: `${cardYPx}px`,
+                width: `${cardWidthPx}px`,
                 scale: cardScale,
                 transformOrigin: "center center",
                 touchAction: "none",
@@ -634,14 +665,11 @@ export function VideoEffects() {
                 isDragging === "caption"
                   ? "cursor-grabbing ring-2 ring-[#10b981]/40 ring-inset rounded-lg"
                   : "cursor-grab"
-              } ${
-                effects.textPlacement === "top"
-                  ? "top-4"
-                  : effects.textPlacement === "center"
-                    ? "top-1/2"
-                    : "bottom-4"
               }`}
-              style={{ touchAction: "none" }}
+              style={{
+                top: `${captionYPx}px`,
+                touchAction: "none",
+              }}
             >
               <AnimatePresence mode="wait">
                 <motion.div

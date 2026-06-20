@@ -1322,21 +1322,6 @@ export function VideoCreator({
                 autoPlay
                 playsInline
                 className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback: try loading the R2 URL directly
-                  const videoEl = e.target as HTMLVideoElement;
-                  fetch(`/api/video/preview/${jobId}`, {
-                    redirect: "follow",
-                  })
-                    .then(async (res) => {
-                      const finalUrl = res.url;
-                      if (finalUrl && finalUrl !== videoEl.src) {
-                        videoEl.src = finalUrl;
-                        videoEl.load();
-                      }
-                    })
-                    .catch(() => {});
-                }}
               />
             </div>
 
