@@ -329,7 +329,13 @@ export function VideoEffects() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          video_settings: { effects: effects },
+          video_settings: {
+            effects: {
+              ...effects,
+              // Include the selected preset URL so the pipeline can use it
+              selectedPfpUrl: selectedPfpUrl,
+            },
+          },
         }),
       });
       if (!res.ok) throw new Error("Save failed");

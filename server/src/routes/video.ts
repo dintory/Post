@@ -206,6 +206,39 @@ router.post("/process", requireAuth, async (req: any, res) => {
   }
 
   try {
+    // Fetch user's saved effects settings and inject into reddit config
+    let effectsRedditConfig = redditConfig || {};
+    try {
+      const { data: userSettings } = await getSupabaseClient(req.token)
+        .from("user_usage")
+        .select("video_settings")
+        .eq("user_id", req.user.id)
+        .maybeSingle();
+
+      const effects = userSettings?.video_settings?.effects;
+      if (effects) {
+        // Inject PFP avatar URL
+        if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
+          effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
+        }
+        // Inject card placement (overlay.marginTop)
+        if (effects.cardPlacement) {
+          const marginTop =
+            effects.cardPlacement === "top"
+              ? 54
+              : effects.cardPlacement === "center"
+                ? 380
+                : 720;
+          effectsRedditConfig.overlay = {
+            ...(effectsRedditConfig.overlay || {}),
+            marginTop,
+          };
+        }
+      }
+    } catch (settingsErr) {
+      console.warn("[Video] Could not load effects settings:", settingsErr);
+    }
+
     const { jobId } = await runVideoPipeline({
       userId: req.user.id,
       title,
@@ -219,8 +252,8 @@ router.post("/process", requireAuth, async (req: any, res) => {
       subtitleStyle,
       aiModel,
       script,
-      redditConfig,
       description,
+      redditConfig: effectsRedditConfig,
       token: req.token,
     });
 

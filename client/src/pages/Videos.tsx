@@ -624,14 +624,28 @@ export function Videos() {
                           }
                         }}
                       >
-                        {/* Show the first frame of the video as thumbnail */}
-                        <video
-                          src={`/api/video/preview/${video.id}`}
-                          className="absolute inset-0 w-full h-full object-top pointer-events-none"
-                          preload="metadata"
-                          muted
-                          playsInline
-                        />
+                        {/* Show thumbnail (first frame extracted by pipeline) */}
+                        {video.thumbnail_url ? (
+                          <img
+                            src={video.thumbnail_url}
+                            alt={video.title}
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                            loading="lazy"
+                            onError={(e) => {
+                              // Fallback: try loading via preview endpoint
+                              (e.target as HTMLImageElement).src =
+                                `/api/video/preview/${video.id}`;
+                            }}
+                          />
+                        ) : (
+                          <video
+                            src={`/api/video/preview/${video.id}`}
+                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                            preload="metadata"
+                            muted
+                            playsInline
+                          />
+                        )}
                         {/* Subtle gradient so edges read against light frames */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                       </div>
