@@ -3,7 +3,10 @@ import sharp from "sharp";
 import { getCardLayout } from "../shared/layoutEngine";
 
 function esc(str: string): string {
-  return str
+  // Unescape JSON-escaped quotes: \"  and  ""  →  "
+  // The regex /\\/g matches a single literal backslash
+  const cleaned = str.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  return cleaned
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -353,7 +356,7 @@ export const generateRedditCardSvg = (
 
   const titleTop = headerTop + avatarSize + headerMarginBottom;
   const titleBaseline = titleTop + titleFont;
-  const titleLines = clampLines(postTitle, innerW, titleFont * 0.54, 3);
+  const titleLines = clampLines(postTitle, innerW, titleFont * 0.54, 99);
   const titleBottom = titleTop + titleLines.length * titleLineHeight;
 
   const bodyTop = titleBottom + titleMarginBottom;
