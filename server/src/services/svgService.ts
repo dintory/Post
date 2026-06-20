@@ -306,7 +306,6 @@ export const generateRedditCardSvg = (
   const pillPadY = 7 * ui;
   const pillInnerGap = 6 * ui;
   const pillIcon = 16 * ui;
-  const pillHeight = pillIcon + pillPadY * 2;
 
   const subredditFont = 12 * ui;
   const titleFont = 18 * ui;
@@ -350,56 +349,95 @@ export const generateRedditCardSvg = (
       ? bodyTop + bodyLines.length * bodyLineHeight
       : titleBottom;
 
-  const actionsY = bodyBottom + actionsMarginTop;
-  const pillSizes = {
-    padX: pillPadX,
-    icon: pillIcon,
-    innerGap: pillInnerGap,
-    textFont: pillTextFont,
+  // ── Action bar sizing ──────────────────────────────────────────────
+  // Check if pills fit; if not, scale them down proportionally
+  const approxVoteW =
+    pillPadX * 2 +
+    pillIcon * 2 +
+    pillInnerGap * 2 +
+    estimateTextWidth(upvoteText, pillTextFont, 0.58);
+  const approxCommentW =
+    pillPadX * 2 +
+    pillIcon +
+    pillInnerGap +
+    estimateTextWidth(commentText, pillTextFont, 0.58);
+  const approxAwardW = pillPadX * 2 + pillIcon;
+  const approxShareW =
+    pillPadX * 2 +
+    pillIcon +
+    pillInnerGap +
+    estimateTextWidth("Share", pillTextFont, 0.58);
+  const approxGaps =
+    actionsGap + actionGroupGap + (showAwards ? actionsGap + 0 : 0) + 0;
+  const approxTotal =
+    approxVoteW +
+    approxCommentW +
+    approxShareW +
+    approxGaps +
+    (showAwards ? approxAwardW : 0);
+
+  const pillScale = approxTotal > innerW ? (innerW - 4) / approxTotal : 1;
+
+  const effPadX = pillPadX * pillScale;
+  const effIcon = pillIcon * pillScale;
+  const effInnerGap = pillInnerGap * pillScale;
+  const effTextFont = pillTextFont * pillScale;
+  const effPadY = pillPadY * pillScale;
+  const effPillHeight = effIcon + effPadY * 2;
+  const effActionsGap = actionsGap * pillScale;
+  const effActionGroupGap = actionGroupGap * pillScale;
+
+  const effPillSizes = {
+    padX: effPadX,
+    icon: effIcon,
+    innerGap: effInnerGap,
+    textFont: effTextFont,
     textRatio: 0.58,
   };
+
+  const actionsY = bodyBottom + actionsMarginTop;
 
   let cursorX = innerX;
   const votePill = renderVotePill(
     cursorX,
     actionsY,
-    pillHeight,
+    effPillHeight,
     upvoteText,
-    pillSizes,
+    effPillSizes,
   );
-  cursorX += votePill.width + actionsGap;
+  cursorX += votePill.width + effActionsGap;
   const commentPill = renderPill(
     cursorX,
     actionsY,
-    pillHeight,
+    effPillHeight,
     commentText,
     commentIcon(),
-    pillSizes,
+    effPillSizes,
   );
-  cursorX += commentPill.width + actionGroupGap;
+  cursorX += commentPill.width + effActionGroupGap;
 
   const awardPill = showAwards
     ? renderPill(
         cursorX,
         actionsY,
-        pillHeight,
+        effPillHeight,
         "",
         awardIcon(),
-        pillSizes,
+        effPillSizes,
         true,
       )
     : null;
-  if (awardPill) cursorX += awardPill.width + actionsGap;
+  if (awardPill) cursorX += awardPill.width + effActionsGap;
   const sharePill = renderPill(
     cursorX,
     actionsY,
-    pillHeight,
+    effPillHeight,
     "Share",
     shareIcon(),
-    pillSizes,
+    effPillSizes,
   );
 
-  const cardHeight = actionsY + pillHeight + pad - cardY;
+  const cardHeight = actionsY + effPillHeight + pad - cardY;
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
@@ -429,25 +467,32 @@ export const generateRedditCardSvg = (
       <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0000001F"/>
       <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#00000014"/>
     </filter>
+    <clipPath id="cardClip">
+      <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRadius}"/>
+    </clipPath>
   </defs>
 
+  <!-- Card background with shadow (outside clip so shadow renders) -->
   <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRadius}" ry="${cardRadius}" fill="#FFFFFF" filter="url(#cardShadow)"/>
 
-  ${renderAvatar(avatarCx, avatarCy, avatarSize / 2, config.avatarSrc)}
+  <!-- Everything inside card is clipped to prevent overflow -->
+  <g clip-path="url(#cardClip)">
+    ${renderAvatar(avatarCx, avatarCy, avatarSize / 2, config.avatarSrc)}
 
-  <!-- Header: subreddit • timestamp (single row, no username) -->
-  <text x="${metaX}" y="${metaBaseline}" font-size="${subredditFont}">
-    <tspan font-weight="700" fill="#2E3640">${esc(subreddit)}</tspan>
-    <tspan font-weight="400" fill="#5C6C74"> • ${esc(timeAgo)}</tspan>
-  </text>
+    <!-- Header: subreddit • timestamp (single row, no username) -->
+    <text x="${metaX}" y="${metaBaseline}" font-size="${subredditFont}">
+      <tspan font-weight="700" fill="#2E3640">${esc(subreddit)}</tspan>
+      <tspan font-weight="400" fill="#5C6C74"> • ${esc(timeAgo)}</tspan>
+    </text>
 
-  ${titleLines.map((line, index) => `<text x="${innerX}" y="${titleBaseline + index * titleLineHeight}" font-size="${titleFont}" font-weight="600" fill="#11151A">${esc(line)}</text>`).join("\n  ")}
-  ${bodyLines.map((line, index) => `<text x="${innerX}" y="${bodyBaseline + index * bodyLineHeight}" font-size="${bodyFont}" font-weight="400" fill="#5C6C74">${esc(line)}</text>`).join("\n  ")}
+    ${titleLines.map((line, index) => `<text x="${innerX}" y="${titleBaseline + index * titleLineHeight}" font-size="${titleFont}" font-weight="600" fill="#11151A">${esc(line)}</text>`).join("\n    ")}
+    ${bodyLines.map((line, index) => `<text x="${innerX}" y="${bodyBaseline + index * bodyLineHeight}" font-size="${bodyFont}" font-weight="400" fill="#5C6C74">${esc(line)}</text>`).join("\n    ")}
 
-  ${votePill.svg}
-  ${commentPill.svg}
-  ${awardPill ? awardPill.svg : ""}
-  ${sharePill.svg}
+    ${votePill.svg}
+    ${commentPill.svg}
+    ${awardPill ? awardPill.svg : ""}
+    ${sharePill.svg}
+  </g>
 </svg>`;
 
   fs.writeFileSync(outputPath, svg);

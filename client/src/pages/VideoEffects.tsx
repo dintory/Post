@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -290,6 +290,7 @@ export function VideoEffects() {
   const [captionScale, setCaptionScale] = useState(1);
   const [cardScale, setCardScale] = useState(1);
   const [isDragging, setIsDragging] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   // Last non-custom placement for fallback when "custom" is active
   const [lastCardPlacement, setLastCardPlacement] = useState<VerticalPlacement>(
     DEFAULT_EFFECTS.cardPlacement as VerticalPlacement,
@@ -494,77 +495,78 @@ export function VideoEffects() {
       <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
         {/* ── Preview Panel ────────────────────────────────────────────── */}
         <div className="flex-1 flex items-center justify-center p-6 bg-[#050505] border-r border-[#1A1A1A]">
-          <div className="relative w-[360px] h-[640px] rounded-3xl border-4 border-[#1A1A1A] shadow-2xl shadow-black/50">
+          <div
+            ref={previewRef}
+            className="relative w-[360px] h-[640px] rounded-3xl border-4 border-[#1A1A1A] shadow-2xl shadow-black/50"
+          >
             {/* Background — clipped to rounded corners via inner wrapper */}
             <div className="absolute inset-0 rounded-3xl overflow-hidden bg-black pointer-events-none">
               <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a]" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
             </div>
 
-            {/* ── Google Slides-style grid ── */}
-            {/* Minor grid lines (20px) — always faint, brighter on drag */}
+            {/* ── Clean alignment grid ── */}
+            {/* Fine grid (20px) — visible at rest, brightens on drag */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.15 : 0.04 }}
+              animate={{ opacity: isDragging ? 0.2 : 0.07 }}
               transition={{ duration: 0.15 }}
               className="absolute inset-0 z-30 pointer-events-none"
               style={{
                 backgroundImage: `
-                  linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)
+                  repeating-linear-gradient(rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 0.5px, transparent 0.5px, transparent 20px),
+                  repeating-linear-gradient(90deg, rgba(255,255,255,0.5) 0px, rgba(255,255,255,0.5) 0.5px, transparent 0.5px, transparent 20px)
                 `,
-                backgroundSize: "20px 20px",
               }}
             />
-            {/* Major grid lines (100px) */}
+            {/* Major grid (100px) */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
+              animate={{ opacity: isDragging ? 0.4 : 0.15 }}
               transition={{ duration: 0.15 }}
               className="absolute inset-0 z-30 pointer-events-none"
               style={{
                 backgroundImage: `
-                  linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)
+                  repeating-linear-gradient(rgba(255,255,255,0.7) 0px, rgba(255,255,255,0.7) 0.5px, transparent 0.5px, transparent 100px),
+                  repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0px, rgba(255,255,255,0.7) 0.5px, transparent 0.5px, transparent 100px)
                 `,
-                backgroundSize: "100px 100px",
               }}
             />
 
-            {/* Safe-area padding guides — always visible */}
+            {/* Safe-area padding guides */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.5 : 0.12 }}
+              animate={{ opacity: isDragging ? 0.6 : 0.2 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-y-0 left-4 z-30 pointer-events-none w-px bg-white/60"
+              className="absolute inset-y-0 left-4 z-30 pointer-events-none w-px bg-white/70"
             />
             <motion.div
-              animate={{ opacity: isDragging ? 0.5 : 0.12 }}
+              animate={{ opacity: isDragging ? 0.6 : 0.2 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-y-0 right-4 z-30 pointer-events-none w-px bg-white/60"
+              className="absolute inset-y-0 right-4 z-30 pointer-events-none w-px bg-white/70"
             />
             <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
+              animate={{ opacity: isDragging ? 0.4 : 0.15 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-x-0 top-4 z-30 pointer-events-none h-px bg-white/40"
+              className="absolute inset-x-0 top-4 z-30 pointer-events-none h-px bg-white/50"
             />
             <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
+              animate={{ opacity: isDragging ? 0.4 : 0.15 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-x-0 bottom-4 z-30 pointer-events-none h-px bg-white/40"
+              className="absolute inset-x-0 bottom-4 z-30 pointer-events-none h-px bg-white/50"
             />
 
-            {/* Center crosshair — always visible */}
+            {/* Center crosshair — emerald */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.8 : 0.15 }}
+              animate={{ opacity: isDragging ? 0.9 : 0.25 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
-              <div className="w-full h-px bg-[#10b981]/80" />
+              <div className="w-full h-px bg-[#10b981]/90" />
             </motion.div>
             <motion.div
-              animate={{ opacity: isDragging ? 0.8 : 0.15 }}
+              animate={{ opacity: isDragging ? 0.9 : 0.25 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
-              <div className="h-full w-px bg-[#10b981]/80" />
+              <div className="h-full w-px bg-[#10b981]/90" />
             </motion.div>
 
             {/* Card — draggable always, snaps to 10px grid */}
@@ -572,6 +574,7 @@ export function VideoEffects() {
               drag
               dragMomentum={false}
               dragElastic={0}
+              dragConstraints={previewRef}
               onDragStart={() => {
                 setIsDragging("card");
                 document.body.style.userSelect = "none";
@@ -607,6 +610,10 @@ export function VideoEffects() {
                 scale: cardScale,
                 transformOrigin: "center center",
                 touchAction: "none",
+                filter:
+                  isDragging === "card"
+                    ? "drop-shadow(0 0 20px rgba(16,185,129,0.4)) drop-shadow(0 0 50px rgba(16,185,129,0.15))"
+                    : "none",
               }}
             >
               <motion.div
@@ -703,6 +710,7 @@ export function VideoEffects() {
               drag
               dragMomentum={false}
               dragElastic={0}
+              dragConstraints={previewRef}
               onDragStart={() => {
                 setIsDragging("caption");
                 document.body.style.userSelect = "none";
@@ -734,6 +742,10 @@ export function VideoEffects() {
               style={{
                 top: `${captionYPx}px`,
                 touchAction: "none",
+                filter:
+                  isDragging === "caption"
+                    ? "drop-shadow(0 0 16px rgba(16,185,129,0.35)) drop-shadow(0 0 40px rgba(16,185,129,0.12))"
+                    : "none",
               }}
             >
               <AnimatePresence mode="wait">
