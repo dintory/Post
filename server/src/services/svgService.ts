@@ -3,9 +3,12 @@ import sharp from "sharp";
 import { getCardLayout } from "../shared/layoutEngine";
 
 function esc(str: string): string {
-  // Unescape JSON-escaped quotes: \"  and  ""  →  "
-  // The regex /\\/g matches a single literal backslash
-  const cleaned = str.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  // Unescape JSON-escaped quotes fully before HTML-escaping.
+  // Handles nested escaping (e.g. \\" → \" → " or \" → ")
+  let cleaned = str;
+  while (/\\"/.test(cleaned) || /\\'/.test(cleaned)) {
+    cleaned = cleaned.replace(/\\"/g, '"').replace(/\\'/g, "'");
+  }
   return cleaned
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -276,18 +279,6 @@ export const generateRedditCardSvg = (
   base64Regular?: string,
   base64Bold?: string,
 ): void => {
-  console.log(
-    "[DEBUG:SVG] generateRedditCardSvg called with config:",
-    JSON.stringify(
-      {
-        avatarSrc: config.avatarSrc,
-        overlay: config.overlay,
-      },
-      null,
-      2,
-    ),
-  );
-
   const W = 1080;
   const H = 1920;
 
@@ -306,9 +297,7 @@ export const generateRedditCardSvg = (
   const cardRadius = 8 * ui;
   const avatarSize = 32 * ui;
   const headerGap = 8 * ui;
-  const headerMarginBottom = 4 * ui;
-  const metaGap = 2 * ui;
-  const metaRowGap = 4 * ui;
+  const headerMarginBottom = 14 * ui;
   const titleMarginBottom = 8 * ui;
   const actionsMarginTop = 6 * ui;
   const actionsGap = 8 * ui;
@@ -320,9 +309,6 @@ export const generateRedditCardSvg = (
   const pillHeight = pillIcon + pillPadY * 2;
 
   const subredditFont = 12 * ui;
-  const subredditLineHeight = 16 * ui;
-  const usernameFont = 12 * ui;
-  const usernameLineHeight = 16 * ui;
   const titleFont = 18 * ui;
   const titleLineHeight = 24 * ui;
   const bodyFont = 12 * ui;
@@ -331,15 +317,13 @@ export const generateRedditCardSvg = (
 
   const subredditRaw = (config.subreddit ?? "Stories").trim() || "Stories";
   const subreddit = withPrefix(subredditRaw.replace(/^r\//i, ""), "r/");
-  const username =
-    (config.username ?? "throwaway_8462").trim() || "throwaway_8462";
+  const timeAgo = (config.timeAgo ?? "2 hr. ago").trim() || "2 hr. ago";
   const postTitle =
     (config.postTitle ?? "Your post title goes here").trim() ||
     "Your post title goes here";
   const postBody = (config.postBody ?? "").trim();
   const upvoteText = formatCompactCount(config.upvotes ?? 99);
   const commentText = formatCompactCount(config.comments ?? 99);
-  const showVerified = config.showVerified ?? false;
   const showAwards = config.showAwards ?? false;
 
   const innerX = cardX + pad;
@@ -348,15 +332,12 @@ export const generateRedditCardSvg = (
   const avatarCx = innerX + avatarSize / 2;
   const avatarCy = headerTop + avatarSize / 2;
   const metaX = innerX + avatarSize + headerGap;
-  const metaTop = headerTop + 2 * ui;
-  const subredditY = metaTop + subredditFont;
-  const usernameY = subredditY + metaGap + usernameLineHeight;
-  const badgeX =
-    metaX + estimateTextWidth(subreddit, subredditFont, 0.56) + metaRowGap;
+  // Vertically center header text with the avatar
+  const metaBaseline = avatarCy + subredditFont * 0.35;
 
   const titleTop = headerTop + avatarSize + headerMarginBottom;
   const titleBaseline = titleTop + titleFont;
-  const titleLines = clampLines(postTitle, innerW, titleFont * 0.54, 99);
+  const titleLines = wrapText(postTitle, innerW, titleFont * 0.54);
   const titleBottom = titleTop + titleLines.length * titleLineHeight;
 
   const bodyTop = titleBottom + titleMarginBottom;
@@ -454,9 +435,11 @@ export const generateRedditCardSvg = (
 
   ${renderAvatar(avatarCx, avatarCy, avatarSize / 2, config.avatarSrc)}
 
-  <text x="${metaX}" y="${subredditY}" font-size="${subredditFont}" font-weight="700" fill="#2E3640">${esc(subreddit)}</text>
-  ${showVerified ? verifiedBadge(badgeX, subredditY, 12 * ui) : ""}
-  <text x="${metaX}" y="${usernameY}" font-size="${usernameFont}" font-weight="400" fill="#5C6C74">${esc(username)}</text>
+  <!-- Header: subreddit • timestamp (single row, no username) -->
+  <text x="${metaX}" y="${metaBaseline}" font-size="${subredditFont}">
+    <tspan font-weight="700" fill="#2E3640">${esc(subreddit)}</tspan>
+    <tspan font-weight="400" fill="#5C6C74"> • ${esc(timeAgo)}</tspan>
+  </text>
 
   ${titleLines.map((line, index) => `<text x="${innerX}" y="${titleBaseline + index * titleLineHeight}" font-size="${titleFont}" font-weight="600" fill="#11151A">${esc(line)}</text>`).join("\n  ")}
   ${bodyLines.map((line, index) => `<text x="${innerX}" y="${bodyBaseline + index * bodyLineHeight}" font-size="${bodyFont}" font-weight="400" fill="#5C6C74">${esc(line)}</text>`).join("\n  ")}
