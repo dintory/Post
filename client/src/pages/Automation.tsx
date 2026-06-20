@@ -11,6 +11,8 @@ import {
   Repeat,
   CalendarDays,
   Bell,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -38,6 +40,7 @@ const DAY_NAMES = [
   "Friday",
   "Saturday",
 ];
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const SCHEDULE_TYPES = [
   { value: "weekly", label: "Weekly" },
@@ -67,7 +70,11 @@ function formatTime(timeUtc: string): string {
   return `${hour}:${String(mm).padStart(2, "0")} ${period}`;
 }
 
-function localToUtc(timeLocal: string): string {
+/**
+ * Convert a local time string to UTC.
+ * Also returns the UTC day-of-week since the date may roll over.
+ */
+function localToUtc(timeLocal: string): { utcTime: string; utcDay: number } {
   const [h, m] = timeLocal.split(":").map(Number);
   const now = new Date();
   const local = new Date(
@@ -77,7 +84,10 @@ function localToUtc(timeLocal: string): string {
     h,
     m,
   );
-  return `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+  return {
+    utcTime: `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`,
+    utcDay: local.getUTCDay(),
+  };
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -119,6 +129,49 @@ function scheduleTypeIcon(type: string) {
   }
 }
 
+// ─── Stepper Input ──────────────────────────────────────────────────────────
+
+function StepperInput({
+  value,
+  min,
+  max,
+  onChange,
+  format,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+  format?: (v: number) => string;
+}) {
+  const step = (dir: number) => {
+    let next = value + dir;
+    if (next < min) next = max;
+    if (next > max) next = min;
+    onChange(next);
+  };
+
+  return (
+    <div className="flex items-center">
+      <button
+        onClick={() => step(-1)}
+        className="p-1 hover:bg-[#252525] rounded-l-lg transition-colors text-[#505050] hover:text-[#E8E8E8]"
+      >
+        <ChevronUp className="w-3.5 h-3.5" />
+      </button>
+      <span className="w-10 text-center text-sm font-semibold text-[#E8E8E8] tabular-nums">
+        {format ? format(value) : String(value)}
+      </span>
+      <button
+        onClick={() => step(1)}
+        className="p-1 hover:bg-[#252525] rounded-r-lg transition-colors text-[#505050] hover:text-[#E8E8E8]"
+      >
+        <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export function Automation() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,7 +180,10 @@ export function Automation() {
   // Form state
   const [scheduleType, setScheduleType] = useState<string>("weekly");
   const [newDay, setNewDay] = useState(1);
-  const [newTime, setNewTime] = useState("09:00");
+  // Time stored as 24h string "HH:MM" in local time
+  const [newHour, setNewHour] = useState(9);
+  const [newMinute, setNewMinute] = useState(0);
+  const [newPeriod, setNewPeriod] = useState<"AM" | "PM">("AM");
   const [newInterval, setNewInterval] = useState(6);
   const [newMonthDay, setNewMonthDay] = useState(1);
   const [newLabel, setNewLabel] = useState("Reddit Short");
@@ -157,6 +213,14 @@ export function Automation() {
     fetchSchedules();
   }, [fetchSchedules]);
 
+  /** Convert the local hour/period/minute to 24h string */
+  const getTime24 = (): string => {
+    let h = newHour;
+    if (newPeriod === "PM" && h !== 12) h += 12;
+    if (newPeriod === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${String(newMinute).padStart(2, "0")}`;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -167,15 +231,17 @@ export function Automation() {
       };
 
       if (scheduleType === "weekly") {
-        body.day_of_week = newDay;
-        body.time_utc = localToUtc(newTime);
+        const { utcTime, utcDay } = localToUtc(getTime24());
+        body.day_of_week = utcDay; // Use UTC day to match cron
+        body.time_utc = utcTime;
       } else if (scheduleType === "daily") {
-        body.time_utc = localToUtc(newTime);
+        body.time_utc = localToUtc(getTime24()).utcTime;
       } else if (scheduleType === "interval") {
         body.interval_hours = newInterval;
       } else if (scheduleType === "monthly") {
+        const { utcTime } = localToUtc(getTime24());
         body.month_day = newMonthDay;
-        body.time_utc = localToUtc(newTime);
+        body.time_utc = utcTime;
       }
 
       const res = await fetch("/api/automation/schedules", {
@@ -297,8 +363,9 @@ export function Automation() {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-visible border-b border-zinc-800/50"
               >
-                <div className="p-4 bg-zinc-800/20">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div className="p-5 bg-zinc-800/20 space-y-5">
+                  {/* Row 1: Type + Content */}
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <div className="w-full sm:w-36">
                       <label className="block text-xs text-zinc-500 mb-1.5">
                         Type
@@ -312,95 +379,7 @@ export function Automation() {
                         onChange={(v) => setScheduleType(v)}
                       />
                     </div>
-
-                    {scheduleType === "weekly" && (
-                      <div className="w-full sm:w-36">
-                        <label className="block text-xs text-zinc-500 mb-1.5">
-                          Day
-                        </label>
-                        <Dropdown
-                          options={DAY_NAMES.map((name, i) => ({
-                            value: String(i),
-                            label: name,
-                          }))}
-                          value={String(newDay)}
-                          onChange={(v) => setNewDay(Number(v))}
-                        />
-                      </div>
-                    )}
-
-                    {scheduleType === "monthly" && (
-                      <div className="w-full sm:w-28">
-                        <label className="block text-xs text-zinc-500 mb-1.5">
-                          Day of Month
-                        </label>
-                        <Dropdown
-                          options={Array.from({ length: 28 }, (_, i) => ({
-                            value: String(i + 1),
-                            label: String(i + 1),
-                          }))}
-                          value={String(newMonthDay)}
-                          onChange={(v) => setNewMonthDay(Number(v))}
-                        />
-                      </div>
-                    )}
-
-                    {(scheduleType === "weekly" ||
-                      scheduleType === "daily" ||
-                      scheduleType === "monthly") && (
-                      <div className="w-full sm:w-44">
-                        <label className="block text-xs text-zinc-500 mb-1.5">
-                          Time
-                        </label>
-                        <div className="flex gap-1 items-start">
-                          <div className="flex-1">
-                            <Dropdown
-                              options={Array.from({ length: 24 }, (_, i) => ({
-                                value: String(i).padStart(2, "0"),
-                                label: String(i).padStart(2, "0"),
-                              }))}
-                              value={newTime.split(":")[0]}
-                              onChange={(v) =>
-                                setNewTime(`${v}:${newTime.split(":")[1]}`)
-                              }
-                            />
-                          </div>
-                          <span className="text-zinc-500 pt-3 text-sm font-medium px-0.5">
-                            :
-                          </span>
-                          <div className="flex-1">
-                            <Dropdown
-                              options={Array.from({ length: 12 }, (_, i) => ({
-                                value: String(i * 5).padStart(2, "0"),
-                                label: String(i * 5).padStart(2, "0"),
-                              }))}
-                              value={newTime.split(":")[1]}
-                              onChange={(v) =>
-                                setNewTime(`${newTime.split(":")[0]}:${v}`)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {scheduleType === "interval" && (
-                      <div className="w-full sm:w-36">
-                        <label className="block text-xs text-zinc-500 mb-1.5">
-                          Every (Hours)
-                        </label>
-                        <Dropdown
-                          options={[2, 3, 4, 6, 8, 12, 24].map((h) => ({
-                            value: String(h),
-                            label: `${h} hour${h > 1 ? "s" : ""}`,
-                          }))}
-                          value={String(newInterval)}
-                          onChange={(v) => setNewInterval(Number(v))}
-                        />
-                      </div>
-                    )}
-
-                    <div className="w-full sm:w-40">
+                    <div className="w-full sm:w-44">
                       <label className="block text-xs text-zinc-500 mb-1.5">
                         Content
                       </label>
@@ -412,9 +391,140 @@ export function Automation() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-4 justify-end">
+                  {/* Row 2: Day / Month-day / Interval */}
+                  {scheduleType === "weekly" && (
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-2">
+                        Day of Week
+                      </label>
+                      <div className="flex gap-1.5">
+                        {DAY_SHORT.map((name, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setNewDay(i)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                              newDay === i
+                                ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
+                                : "bg-[#1A1A1A] text-[#909090] border border-[#1A1A1A] hover:border-[#252525]"
+                            }`}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {scheduleType === "monthly" && (
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-1.5">
+                        Day of Month
+                      </label>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map(
+                          (d) => (
+                            <button
+                              key={d}
+                              onClick={() => setNewMonthDay(d)}
+                              className={`w-9 h-9 rounded-lg text-xs font-medium transition-all ${
+                                newMonthDay === d
+                                  ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
+                                  : "bg-[#1A1A1A] text-[#909090] border border-[#1A1A1A] hover:border-[#252525]"
+                              }`}
+                            >
+                              {d}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {scheduleType === "interval" && (
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-1.5">
+                        Every (Hours)
+                      </label>
+                      <div className="flex gap-1.5">
+                        {[2, 3, 4, 6, 8, 12, 24].map((h) => (
+                          <button
+                            key={h}
+                            onClick={() => setNewInterval(h)}
+                            className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                              newInterval === h
+                                ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30"
+                                : "bg-[#1A1A1A] text-[#909090] border border-[#1A1A1A] hover:border-[#252525]"
+                            }`}
+                          >
+                            {h}h
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Row 3: Time picker */}
+                  {(scheduleType === "weekly" ||
+                    scheduleType === "daily" ||
+                    scheduleType === "monthly") && (
+                    <div>
+                      <label className="block text-xs text-zinc-500 mb-2">
+                        Time
+                      </label>
+                      <div className="flex items-center gap-3">
+                        {/* Hour */}
+                        <div className="flex items-center gap-0 bg-[#1A1A1A] rounded-lg border border-[#1A1A1A] px-2">
+                          <StepperInput
+                            value={newHour}
+                            min={1}
+                            max={12}
+                            onChange={setNewHour}
+                          />
+                        </div>
+                        <span className="text-[#505050] text-lg font-medium">
+                          :
+                        </span>
+                        {/* Minute */}
+                        <div className="flex items-center gap-0 bg-[#1A1A1A] rounded-lg border border-[#1A1A1A] px-2">
+                          <StepperInput
+                            value={newMinute}
+                            min={0}
+                            max={59}
+                            onChange={setNewMinute}
+                            format={(v) => String(v).padStart(2, "0")}
+                          />
+                        </div>
+                        {/* AM/PM toggle */}
+                        <div className="flex rounded-lg overflow-hidden border border-[#1A1A1A]">
+                          <button
+                            onClick={() => setNewPeriod("AM")}
+                            className={`px-4 py-2 text-xs font-medium transition-colors ${
+                              newPeriod === "AM"
+                                ? "bg-[#10b981]/20 text-[#10b981]"
+                                : "bg-[#1A1A1A] text-[#505050] hover:text-[#E8E8E8]"
+                            }`}
+                          >
+                            AM
+                          </button>
+                          <button
+                            onClick={() => setNewPeriod("PM")}
+                            className={`px-4 py-2 text-xs font-medium transition-colors ${
+                              newPeriod === "PM"
+                                ? "bg-[#10b981]/20 text-[#10b981]"
+                                : "bg-[#1A1A1A] text-[#505050] hover:text-[#E8E8E8]"
+                            }`}
+                          >
+                            PM
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1 justify-end">
                     <Button size="sm" onClick={handleSave} disabled={saving}>
-                      {saving ? "Saving..." : "Create"}
+                      {saving ? "Saving..." : "Create Schedule"}
                     </Button>
                     <Button
                       variant="secondary"
