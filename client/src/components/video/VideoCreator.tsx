@@ -1322,16 +1322,39 @@ export function VideoCreator({
                 autoPlay
                 playsInline
                 className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback: try loading the R2 URL directly
+                  const videoEl = e.target as HTMLVideoElement;
+                  fetch(`/api/video/preview/${jobId}`, {
+                    redirect: "follow",
+                  })
+                    .then(async (res) => {
+                      const finalUrl = res.url;
+                      if (finalUrl && finalUrl !== videoEl.src) {
+                        videoEl.src = finalUrl;
+                        videoEl.load();
+                      }
+                    })
+                    .catch(() => {});
+                }}
               />
             </div>
 
-            <a
-              href={`/api/video/preview/${jobId}`}
-              download={`reddit-story-${jobId}.mp4`}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#10b981] text-zinc-950 text-sm font-bold hover:bg-[#10b981]/90 transition-colors"
-            >
-              <Download className="w-4 h-4" /> Download MP4
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href={`/api/video/preview/${jobId}`}
+                download={`reddit-story-${jobId}.mp4`}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#10b981] text-zinc-950 text-sm font-bold hover:bg-[#10b981]/90 transition-colors"
+              >
+                <Download className="w-4 h-4" /> Download
+              </a>
+              <a
+                href="/videos"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#1A1A1A] text-[#E8E8E8] text-sm font-medium hover:bg-[#262626] transition-colors"
+              >
+                View All Videos
+              </a>
+            </div>
           </motion.div>
         </motion.div>
       )}
