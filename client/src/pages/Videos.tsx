@@ -625,27 +625,26 @@ export function Videos() {
                         }}
                       >
                         {/* Show thumbnail (first frame extracted by pipeline) */}
-                        {video.thumbnail_url ? (
-                          <img
-                            src={video.thumbnail_url}
-                            alt={video.title}
-                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                            loading="lazy"
-                            onError={(e) => {
-                              // Fallback: try loading via preview endpoint
-                              (e.target as HTMLImageElement).src =
-                                `/api/video/preview/${video.id}`;
-                            }}
-                          />
-                        ) : (
-                          <video
-                            src={`/api/video/preview/${video.id}`}
-                            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                            preload="metadata"
-                            muted
-                            playsInline
-                          />
-                        )}
+                        {(() => {
+                          const thumbSrc =
+                            video.thumbnail_url ||
+                            `/api/video/preview/${video.id}`;
+                          return (
+                            <img
+                              src={thumbSrc}
+                              alt={video.title}
+                              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                              loading="lazy"
+                              onError={(e) => {
+                                // Fallback: use the video's R2 URL directly as an image
+                                const el = e.target as HTMLImageElement;
+                                if (video.r2_url && el.src !== video.r2_url) {
+                                  el.src = video.r2_url;
+                                }
+                              }}
+                            />
+                          );
+                        })()}
                         {/* Subtle gradient so edges read against light frames */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                       </div>

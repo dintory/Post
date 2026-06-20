@@ -132,10 +132,44 @@ async function handleCheck(req: any, res: any) {
             );
           }
 
+          // Fetch user's saved effects settings for the reddit card config
+          let effectsRedditConfig: any = {};
+          try {
+            const { data: userSettings } = await supabase
+              .from("user_usage")
+              .select("video_settings")
+              .eq("user_id", schedule.user_id)
+              .maybeSingle();
+
+            const effects = userSettings?.video_settings?.effects;
+            if (effects) {
+              if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
+                effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
+              }
+              if (effects.cardPlacement) {
+                const marginTop =
+                  effects.cardPlacement === "top"
+                    ? 54
+                    : effects.cardPlacement === "center"
+                      ? 380
+                      : 720;
+                effectsRedditConfig.overlay = {
+                  ...(effectsRedditConfig.overlay || {}),
+                  marginTop,
+                };
+              }
+            }
+          } catch {
+            console.warn(
+              `[Automation] Could not fetch effects for user ${schedule.user_id}`,
+            );
+          }
+
           await runVideoPipeline({
             userId: schedule.user_id,
             title: autoTitle,
             format: "reddit_story",
+            redditConfig: effectsRedditConfig,
             token: serviceRoleKey,
             autoUpload: true,
             refreshToken: ytRefreshToken || undefined,
