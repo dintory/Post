@@ -145,11 +145,25 @@ function verifiedBadge(x: number, y: number, size = 12): string {
   </g>`;
 }
 
-function renderPlaceholderAvatar(
+function renderAvatar(
   cx: number,
   cy: number,
   radius: number,
+  avatarSrc?: string,
 ): string {
+  if (avatarSrc) {
+    // Render the actual avatar image clipped to a circle
+    const d = radius * 2;
+    const x = cx - radius;
+    const y = cy - radius;
+    return `<g>
+      <clipPath id="avatarClip">
+        <circle cx="${cx}" cy="${cy}" r="${radius}"/>
+      </clipPath>
+      <image x="${x}" y="${y}" width="${d}" height="${d}" preserveAspectRatio="xMidYMid slice" href="${esc(avatarSrc)}" clip-path="url(#avatarClip)"/>
+    </g>`;
+  }
+  // Default placeholder when no avatarSrc provided
   return `<g>
     <circle cx="${cx}" cy="${cy}" r="${radius}" fill="#D9D9D9"/>
     <circle cx="${cx}" cy="${cy - radius * 0.33}" r="${radius * 0.34}" fill="#FFFFFF"/>
@@ -421,7 +435,7 @@ export const generateRedditCardSvg = (
 
   <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRadius}" ry="${cardRadius}" fill="#FFFFFF" filter="url(#cardShadow)"/>
 
-  ${renderPlaceholderAvatar(avatarCx, avatarCy, avatarSize / 2)}
+  ${renderAvatar(avatarCx, avatarCy, avatarSize / 2, config.avatarSrc)}
 
   <text x="${metaX}" y="${subredditY}" font-size="${subredditFont}" font-weight="700" fill="#2E3640">${esc(subreddit)}</text>
   ${showVerified ? verifiedBadge(badgeX, subredditY, 12 * ui) : ""}
