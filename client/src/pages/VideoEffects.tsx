@@ -31,8 +31,8 @@ interface VideoEffectsState {
   captionColor: string;
   captionOutline: boolean;
   captionOutlineWidth: number;
-  cardPlacement: "top" | "center" | "bottom";
-  textPlacement: "top" | "center" | "bottom";
+  cardPlacement: "top" | "center" | "bottom" | "custom";
+  textPlacement: "top" | "center" | "bottom" | "custom";
 }
 
 const DEFAULT_EFFECTS: VideoEffectsState = {
@@ -64,6 +64,7 @@ const PLACEMENT_OPTIONS = [
   { value: "top", label: "Top" },
   { value: "center", label: "Center" },
   { value: "bottom", label: "Bottom" },
+  { value: "custom", label: "Custom" },
 ];
 
 const PFP_OPTIONS = [
@@ -289,6 +290,13 @@ export function VideoEffects() {
   const [captionScale, setCaptionScale] = useState(1);
   const [cardScale, setCardScale] = useState(1);
   const [isDragging, setIsDragging] = useState<string | null>(null);
+  // Last non-custom placement for fallback when "custom" is active
+  const [lastCardPlacement, setLastCardPlacement] = useState<VerticalPlacement>(
+    DEFAULT_EFFECTS.cardPlacement as VerticalPlacement,
+  );
+  const [lastTextPlacement, setLastTextPlacement] = useState<VerticalPlacement>(
+    DEFAULT_EFFECTS.textPlacement as VerticalPlacement,
+  );
 
   // ── Shared layout engine (preview = 360x640, full frame = 1080x1920) ──
   const PREVIEW_W = 360;
@@ -298,10 +306,19 @@ export function VideoEffects() {
 
   // Estimate card height at full resolution for preview positioning
   const EST_CARD_HEIGHT = 400;
+  // When placement is "custom", use the last preset as the base position
+  const effectiveCardPlacement =
+    effects.cardPlacement === "custom"
+      ? lastCardPlacement
+      : (effects.cardPlacement as VerticalPlacement);
+  const effectiveTextPlacement =
+    effects.textPlacement === "custom"
+      ? lastTextPlacement
+      : (effects.textPlacement as VerticalPlacement);
 
   const cardLayout = getCardLayout(
     { width: FULL_W, height: FULL_H },
-    effects.cardPlacement as VerticalPlacement,
+    effectiveCardPlacement,
     EST_CARD_HEIGHT,
   );
   const cardXpx = Math.round((cardLayout.x * PREVIEW_W) / FULL_W);
@@ -310,7 +327,7 @@ export function VideoEffects() {
 
   const captionY = getCaptionY(
     { width: FULL_W, height: FULL_H },
-    effects.textPlacement as VerticalPlacement,
+    effectiveTextPlacement,
   );
   const captionYPx = Math.round((captionY * PREVIEW_H) / FULL_H);
 
@@ -344,14 +361,30 @@ export function VideoEffects() {
               DEFAULT_EFFECTS,
             ) as (keyof VideoEffectsState)[]) {
               if (saved[k] !== undefined) {
+                // Never load "custom" for placement fields
+                if (
+                  (k === "cardPlacement" || k === "textPlacement") &&
+                  saved[k] === "custom"
+                )
+                  continue;
                 (merged as any)[k] = saved[k];
               }
             }
             // Explicitly restore cardPlacement and textPlacement
-            if (saved.cardPlacement !== undefined)
+            if (
+              saved.cardPlacement !== undefined &&
+              saved.cardPlacement !== "custom"
+            ) {
               merged.cardPlacement = saved.cardPlacement;
-            if (saved.textPlacement !== undefined)
+              setLastCardPlacement(saved.cardPlacement);
+            }
+            if (
+              saved.textPlacement !== undefined &&
+              saved.textPlacement !== "custom"
+            ) {
               merged.textPlacement = saved.textPlacement;
+              setLastTextPlacement(saved.textPlacement);
+            }
             return merged;
           });
         } else {
@@ -385,6 +418,15 @@ export function VideoEffects() {
           video_settings: {
             effects: {
               ...effects,
+              // Never persist "custom" — save the underlying preset instead
+              cardPlacement:
+                effects.cardPlacement === "custom"
+                  ? lastCardPlacement
+                  : effects.cardPlacement,
+              textPlacement:
+                effects.textPlacement === "custom"
+                  ? lastTextPlacement
+                  : effects.textPlacement,
               // Include the selected preset URL so the pipeline can use it
               selectedPfpUrl: selectedPfpUrl,
             },
@@ -452,62 +494,77 @@ export function VideoEffects() {
       <div className="flex-1 flex flex-col lg:flex-row gap-0 min-h-0">
         {/* ── Preview Panel ────────────────────────────────────────────── */}
         <div className="flex-1 flex items-center justify-center p-6 bg-[#050505] border-r border-[#1A1A1A]">
-          <div className="relative w-[360px] h-[640px] rounded-3xl overflow-hidden border-4 border-[#1A1A1A] shadow-2xl shadow-black/50 bg-black">
-            {/* Background — solid dark (actual video replaces this) */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a]" />
+          <div className="relative w-[360px] h-[640px] rounded-3xl border-4 border-[#1A1A1A] shadow-2xl shadow-black/50">
+            {/* Background — clipped to rounded corners via inner wrapper */}
+            <div className="absolute inset-0 rounded-3xl overflow-hidden bg-black pointer-events-none">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a]" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
+            </div>
 
-            {/* Subtle gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/40" />
-
-            {/* Google Slides-style dot grid — visible while dragging */}
+            {/* ── Google Slides-style grid ── */}
+            {/* Minor grid lines (20px) — always faint, brighter on drag */}
             <motion.div
-              animate={{ opacity: isDragging ? 1 : 0 }}
+              animate={{ opacity: isDragging ? 0.15 : 0.04 }}
               transition={{ duration: 0.15 }}
               className="absolute inset-0 z-30 pointer-events-none"
               style={{
-                backgroundImage:
-                  "radial-gradient(circle, rgba(255,255,255,0.4) 1.2px, transparent 1.2px)",
+                backgroundImage: `
+                  linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)
+                `,
                 backgroundSize: "20px 20px",
               }}
             />
-
-            {/* Safe-area padding guides — left & right margins */}
+            {/* Major grid lines (100px) */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.5 : 0 }}
+              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
               transition={{ duration: 0.15 }}
-              className="absolute inset-y-0 left-4 z-30 pointer-events-none w-px bg-white/30"
-            />
-            <motion.div
-              animate={{ opacity: isDragging ? 0.5 : 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-y-0 right-4 z-30 pointer-events-none w-px bg-white/30"
-            />
-            <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-x-0 top-4 z-30 pointer-events-none h-px bg-white/20"
-            />
-            <motion.div
-              animate={{ opacity: isDragging ? 0.3 : 0 }}
-              transition={{ duration: 0.15 }}
-              className="absolute inset-x-0 bottom-4 z-30 pointer-events-none h-px bg-white/20"
+              className="absolute inset-0 z-30 pointer-events-none"
+              style={{
+                backgroundImage: `
+                  linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)
+                `,
+                backgroundSize: "100px 100px",
+              }}
             />
 
-            {/* Snap guide — horizontal center (emerald) */}
+            {/* Safe-area padding guides — always visible */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.7 : 0 }}
+              animate={{ opacity: isDragging ? 0.5 : 0.12 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-y-0 left-4 z-30 pointer-events-none w-px bg-white/60"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.5 : 0.12 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-y-0 right-4 z-30 pointer-events-none w-px bg-white/60"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-x-0 top-4 z-30 pointer-events-none h-px bg-white/40"
+            />
+            <motion.div
+              animate={{ opacity: isDragging ? 0.3 : 0.08 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-x-0 bottom-4 z-30 pointer-events-none h-px bg-white/40"
+            />
+
+            {/* Center crosshair — always visible */}
+            <motion.div
+              animate={{ opacity: isDragging ? 0.8 : 0.15 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
-              <div className="w-full h-px bg-[#10b981]/70" />
+              <div className="w-full h-px bg-[#10b981]/80" />
             </motion.div>
-            {/* Snap guide — vertical center (emerald) */}
             <motion.div
-              animate={{ opacity: isDragging ? 0.7 : 0 }}
+              animate={{ opacity: isDragging ? 0.8 : 0.15 }}
               transition={{ duration: 0.1 }}
               className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
             >
-              <div className="h-full w-px bg-[#10b981]/70" />
+              <div className="h-full w-px bg-[#10b981]/80" />
             </motion.div>
 
             {/* Card — draggable always, snaps to 10px grid */}
@@ -531,6 +588,10 @@ export function VideoEffects() {
                 if (Math.abs(newX) < 15) newX = 0;
                 if (Math.abs(newY) < 15) newY = 0;
                 setCardDrag({ x: newX, y: newY });
+                // Auto-select "custom" when dragged away from preset
+                if (newX !== 0 || newY !== 0) {
+                  update("cardPlacement", "custom");
+                }
               }}
               animate={{ x: cardDrag.x, y: cardDrag.y }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
@@ -560,12 +621,12 @@ export function VideoEffects() {
                 {/* Resize handle for card */}
                 <div
                   className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-se-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
                     const startY = e.clientY;
                     const startScale = cardScale;
-                    const onMove = (ev: MouseEvent) => {
+                    const onMove = (ev: PointerEvent) => {
                       ev.preventDefault();
                       const delta = ev.clientY - startY;
                       setCardScale(
@@ -573,11 +634,11 @@ export function VideoEffects() {
                       );
                     };
                     const onUp = () => {
-                      document.removeEventListener("mousemove", onMove);
-                      document.removeEventListener("mouseup", onUp);
+                      document.removeEventListener("pointermove", onMove);
+                      document.removeEventListener("pointerup", onUp);
                     };
-                    document.addEventListener("mousemove", onMove);
-                    document.addEventListener("mouseup", onUp);
+                    document.addEventListener("pointermove", onMove);
+                    document.addEventListener("pointerup", onUp);
                   }}
                 >
                   <Maximize2 className="w-3 h-3 text-white" />
@@ -658,6 +719,10 @@ export function VideoEffects() {
                 if (Math.abs(newX) < 15) newX = 0;
                 if (Math.abs(newY) < 15) newY = 0;
                 setCaptionDrag({ x: newX, y: newY });
+                // Auto-select "custom" when dragged away from preset
+                if (newX !== 0 || newY !== 0) {
+                  update("textPlacement", "custom");
+                }
               }}
               animate={{ x: captionDrag.x, y: captionDrag.y }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
@@ -703,12 +768,12 @@ export function VideoEffects() {
                   {/* Resize handle for caption */}
                   <div
                     className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-nw-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                    onMouseDown={(e) => {
+                    onPointerDown={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
                       const startY = e.clientY;
                       const startScale = captionScale;
-                      const onMove = (ev: MouseEvent) => {
+                      const onMove = (ev: PointerEvent) => {
                         ev.preventDefault();
                         const delta = ev.clientY - startY;
                         setCaptionScale(
@@ -719,11 +784,11 @@ export function VideoEffects() {
                         );
                       };
                       const onUp = () => {
-                        document.removeEventListener("mousemove", onMove);
-                        document.removeEventListener("mouseup", onUp);
+                        document.removeEventListener("pointermove", onMove);
+                        document.removeEventListener("pointerup", onUp);
                       };
-                      document.addEventListener("mousemove", onMove);
-                      document.addEventListener("mouseup", onUp);
+                      document.addEventListener("pointermove", onMove);
+                      document.addEventListener("pointerup", onUp);
                     }}
                   >
                     <Maximize2 className="w-3 h-3 text-white" />
@@ -910,10 +975,12 @@ export function VideoEffects() {
                     options={PLACEMENT_OPTIONS}
                     value={effects.cardPlacement}
                     onChange={(v) => {
+                      if (v === "custom") return;
                       update(
                         "cardPlacement",
                         v as VideoEffectsState["cardPlacement"],
                       );
+                      setLastCardPlacement(v as VerticalPlacement);
                       setCardDrag({ x: 0, y: 0 });
                     }}
                   />
@@ -941,10 +1008,12 @@ export function VideoEffects() {
                     options={PLACEMENT_OPTIONS}
                     value={effects.textPlacement}
                     onChange={(v) => {
+                      if (v === "custom") return;
                       update(
                         "textPlacement",
                         v as VideoEffectsState["textPlacement"],
                       );
+                      setLastTextPlacement(v as VerticalPlacement);
                       setCaptionDrag({ x: 0, y: 0 });
                     }}
                   />
@@ -957,7 +1026,19 @@ export function VideoEffects() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setEffects(DEFAULT_EFFECTS)}
+                onClick={() => {
+                  setEffects(DEFAULT_EFFECTS);
+                  setLastCardPlacement(
+                    DEFAULT_EFFECTS.cardPlacement as VerticalPlacement,
+                  );
+                  setLastTextPlacement(
+                    DEFAULT_EFFECTS.textPlacement as VerticalPlacement,
+                  );
+                  setCardDrag({ x: 0, y: 0 });
+                  setCaptionDrag({ x: 0, y: 0 });
+                  setCardScale(1);
+                  setCaptionScale(1);
+                }}
                 className="w-full"
               >
                 Reset to Defaults
@@ -968,6 +1049,13 @@ export function VideoEffects() {
                   setCaptionDrag({ x: 0, y: 0 });
                   setCardScale(1);
                   setCaptionScale(1);
+                  // Reset placement from "custom" back to the last preset
+                  if (effects.cardPlacement === "custom") {
+                    update("cardPlacement", lastCardPlacement);
+                  }
+                  if (effects.textPlacement === "custom") {
+                    update("textPlacement", lastTextPlacement);
+                  }
                 }}
                 className="w-full px-3 py-2 rounded-lg text-xs font-medium bg-[#1A1A1A] text-[#909090] hover:bg-[#252525] transition-colors"
               >
