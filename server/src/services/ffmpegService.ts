@@ -95,7 +95,7 @@ export const trimVideoToAudio = async (
     `[FFmpeg] Trimming background — start: ${startOffset.toFixed(1)}s, duration: ${durationSec.toFixed(1)}s`,
   );
 
-  // Scale and crop to 720×1280 (vs 1080×1920 — saves ~55% memory per frame)
+  // Scale and crop to 1080×1920 (9:16 vertical, matches SVG overlay dimensions)
   await execFileAsync("ffmpeg", [
     ...THREADS,
     "-ss",
@@ -105,7 +105,7 @@ export const trimVideoToAudio = async (
     "-t",
     String(durationSec.toFixed(3)),
     "-vf",
-    "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
+    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
     "-c:v",
     "libx264",
     "-crf",
