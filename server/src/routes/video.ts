@@ -21,6 +21,23 @@ const VALID_FORMATS: VideoFormat[] = ["pov_slideshow", "reddit_story"];
 
 const router = Router();
 
+/** Fallback: fetch effects from user_usage DB if not passed in request body */
+async function fetchEffectsFromDb(
+  req: any,
+): Promise<Record<string, any> | null> {
+  try {
+    const { data: userSettings } = await getSupabaseClient(req.token)
+      .from("user_usage")
+      .select("video_settings")
+      .eq("user_id", req.user.id)
+      .maybeSingle();
+    return userSettings?.video_settings?.effects || null;
+  } catch (err) {
+    console.warn("[Video] Could not load effects from DB:", err);
+    return null;
+  }
+}
+
 // Generate a script via OpenRouter (standalone — does not start the full pipeline)
 router.post("/generate-script", requireAuth, async (req: any, res) => {
   const {
@@ -206,39 +223,30 @@ router.post("/process", requireAuth, async (req: any, res) => {
   }
 
   try {
-    // Fetch user's saved effects settings and inject into reddit config
-    let effectsRedditConfig = redditConfig || {};
-    let effectsCapture: any = {};
-    try {
-      const { data: userSettings } = await getSupabaseClient(req.token)
-        .from("user_usage")
-        .select("video_settings")
-        .eq("user_id", req.user.id)
-        .maybeSingle();
+    // Use effects from request body (sent by frontend), or fall back to DB
+    let effectsCapture: any =
+      req.body.effects || (await fetchEffectsFromDb(req)) || {};
+    let effectsRedditConfig = { ...(redditConfig || {}) };
 
-      const effects = userSettings?.video_settings?.effects;
-      if (effects) {
-        effectsCapture = effects;
-        // Inject PFP avatar URL
-        if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
-          effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
-        }
-        // Inject card placement (overlay.marginTop)
-        if (effects.cardPlacement) {
-          const marginTop =
-            effects.cardPlacement === "top"
-              ? 54
-              : effects.cardPlacement === "center"
-                ? 380
-                : 720;
-          effectsRedditConfig.overlay = {
-            ...(effectsRedditConfig.overlay || {}),
-            marginTop,
-          };
-        }
-      }
-    } catch (settingsErr) {
-      console.warn("[Video] Could not load effects settings:", settingsErr);
+    // Inject PFP avatar URL
+    if (
+      effectsCapture.pfpStyle === "default" &&
+      effectsCapture.selectedPfpUrl
+    ) {
+      effectsRedditConfig.avatarSrc = effectsCapture.selectedPfpUrl;
+    }
+    // Inject card placement (overlay.marginTop)
+    if (effectsCapture.cardPlacement) {
+      const marginTop =
+        effectsCapture.cardPlacement === "top"
+          ? 54
+          : effectsCapture.cardPlacement === "center"
+            ? 380
+            : 720;
+      effectsRedditConfig.overlay = {
+        ...(effectsRedditConfig.overlay || {}),
+        marginTop,
+      };
     }
 
     const { jobId } = await runVideoPipeline({

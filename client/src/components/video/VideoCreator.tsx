@@ -1039,6 +1039,18 @@ export function VideoCreator({
     setIsSubmitting(true);
     setSubmitError("");
     try {
+      // Fetch saved effects from settings (best-effort)
+      let savedEffects: any = undefined;
+      try {
+        const settingsRes = await fetch("/api/settings", {
+          credentials: "include",
+        });
+        if (settingsRes.ok) {
+          const { settings } = await settingsRes.json();
+          savedEffects = settings?.video_settings?.effects;
+        }
+      } catch {}
+
       const response = await fetch("/api/video/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1051,6 +1063,7 @@ export function VideoCreator({
           pacing: extended ? pacing : undefined,
           script: generatedScript,
           redditConfig: redditConfig || undefined,
+          effects: savedEffects,
         }),
       });
       const data = await response.json();
