@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -21,7 +21,8 @@ import {
   getCaptionY,
   type VerticalPlacement,
 } from "@/shared/layoutEngine";
-import { generateRedditCardSvg } from "@/shared/renderRedditCard";
+import { RedditCard } from "@/templates/reddit";
+import type { RedditCardConfig } from "@/templates/reddit";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -348,47 +349,23 @@ export function VideoEffects() {
         ? customPfpUrl || selectedPfpUrl
         : null;
 
-  // ── Generate preview SVG from shared renderer (360x640, card at pos) ──
-  const previewSvg = useMemo(() => {
-    // Compute where the card sits in preview coordinates
-    const previewCardY = cardYPx;
-    // The SVG card uses full-res positions; map preview positions back
-    const svgCardY = Math.round((previewCardY * FULL_H) / PREVIEW_H);
-    const svgCardX = Math.round((cardXpx * FULL_W) / PREVIEW_W);
-    const svgCardW = Math.round((cardWidthPx * FULL_W) / PREVIEW_W);
-    return (
-      generateRedditCardSvg(
-        {
-          subreddit: "Stories",
-          timeAgo: "2 hr. ago",
-          postTitle:
-            'My neighbor left a note on my car that said "Learn how to park." So I left one on his.',
-          postBody:
-            "I can't believe people actually do this. I came out to my car this morning and found a sticky note on my windshield.",
-          upvotes: 2400,
-          comments: 89,
-          showAwards: true,
-          avatarSrc: displayPfp ?? undefined,
-          cardY: svgCardY,
-        },
-        {
-          width: FULL_W,
-          height: FULL_H,
-          cardX: svgCardX,
-          cardWidth: svgCardW,
-        },
-      )
-        // Crop viewBox to just the card area so it fills the container
-        .replace(
-          'viewBox="0 0 1080 1920"',
-          `viewBox="${svgCardX} ${Math.max(0, svgCardY - 8)} ${svgCardW} 1920"`,
-        )
-        .replace(
-          '<svg width="1080" height="1920"',
-          '<svg width="100%" height="100%"',
-        )
-    );
-  }, [displayPfp, cardXpx, cardYPx, cardWidthPx]);
+  // ── Build RedditCard config from current effects ────────────────────────
+  const redditCardConfig: RedditCardConfig = {
+    username: "throwaway_8462",
+    subreddit: "Stories",
+    postTitle:
+      'My neighbor left a note on my car that said "Learn how to park." So I left one on his.',
+    postBody:
+      "I can't believe people actually do this. I came out to my car this morning and found a sticky note on my windshield.",
+    upvotes: 2400,
+    comments: 89,
+    timeAgo: "2 hr. ago",
+    theme: "dark",
+    showVerified: false,
+    showAwards: true,
+    avatarSrc: displayPfp ?? "",
+    upvoteState: "none",
+  };
 
   // ── Load saved effects on mount ────────────────────────────────────────
   const [savedToast, setSavedToast] = useState(false);
@@ -693,12 +670,16 @@ export function VideoEffects() {
                 >
                   <Maximize2 className="w-3 h-3 text-white" />
                 </div>
-                {/* SVG card from shared renderer — 1:1 match with output */}
+                {/* RedditCard — single source of truth, same component server renders */}
                 <div
-                  className="w-full h-full"
-                  style={{ overflow: "visible" }}
-                  dangerouslySetInnerHTML={{ __html: previewSvg }}
-                />
+                  className="w-full h-full overflow-hidden"
+                  style={{
+                    transform: `scale(${cardWidthPx / 540})`,
+                    transformOrigin: "top left",
+                  }}
+                >
+                  <RedditCard config={redditCardConfig} />
+                </div>
               </div>
             </motion.div>
 

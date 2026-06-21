@@ -214,9 +214,8 @@ export const runVideoPipeline = async (
             "[DEBUG:PIPELINE] overlay.marginTop in resolved:",
             resolvedRedditConfig?.overlay?.marginTop,
           );
-          generateRedditCardSvg(resolvedRedditConfig, svgPath);
-          await svgToPng(svgPath, overlayPngPath);
-          cleanupFiles(svgPath); // SVG no longer needed
+          await generateRedditCardSvg(resolvedRedditConfig, overlayPngPath);
+          // svgToPng no longer needed — cardSatori renders PNG directly
         }
 
         // Generate Captions ASS file using Polly Speech Marks
