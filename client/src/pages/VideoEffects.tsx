@@ -16,7 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/ui/dropdown";
 import { Separator } from "@/components/ui/separator";
-import { getCaptionY, type VerticalPlacement } from "@/shared/layoutEngine";
+import {
+  getCaptionY,
+  getCardLayoutFromPercent,
+  type VerticalPlacement,
+} from "@/shared/layoutEngine";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -315,18 +319,17 @@ export function VideoEffects() {
       ? lastTextPlacement
       : (effects.textPlacement as VerticalPlacement);
 
-  const cardWidthRatio = effects.cardWidthPercent / 100;
-  const cardWidthFull = Math.round(FULL_W * cardWidthRatio);
-  const cardXFull = Math.round((FULL_W - cardWidthFull) / 2);
+  const cardLayoutFull = getCardLayoutFromPercent(
+    { width: FULL_W, height: FULL_H },
+    effectiveCardPlacement,
+    effects.cardWidthPercent,
+    EST_CARD_HEIGHT,
+  );
+  const cardWidthFull = cardLayoutFull.width;
+  const cardXFull = cardLayoutFull.x;
+  const cardYFull = cardLayoutFull.y;
   const cardXpx = Math.round((cardXFull * PREVIEW_W) / FULL_W);
   const cardWidthPx = Math.round((cardWidthFull * PREVIEW_W) / FULL_W);
-  // Compute card Y using the same formula as layout engine but with dynamic width
-  const cardYFull =
-    effectiveCardPlacement === "top"
-      ? Math.round(FULL_H * 0.042)
-      : effectiveCardPlacement === "bottom"
-        ? Math.round(FULL_H * (1 - 0.042) - EST_CARD_HEIGHT)
-        : Math.round((FULL_H - EST_CARD_HEIGHT) / 2);
   const cardYPx = Math.round((cardYFull * PREVIEW_H) / FULL_H);
 
   const captionY = getCaptionY(
@@ -334,6 +337,26 @@ export function VideoEffects() {
     effectiveTextPlacement,
   );
   const captionYPx = Math.round((captionY * PREVIEW_H) / FULL_H);
+
+  // ── Derived absolute full-res positions (sent to server for 1:1 render) ──
+  // The preview is 1/3 scale of the final 1080×1920 frame, so drag offsets in
+  // preview px are multiplied by FRAME_SCALE to get full-res px. Scale is
+  // applied around the card center (matching framer-motion's transform-origin).
+  const FRAME_SCALE = FULL_W / PREVIEW_W; // 3×
+  const finalCardWidth = Math.round(cardWidthFull * cardScale);
+  const finalCardX = Math.round(
+    cardXFull +
+      cardWidthFull / 2 -
+      finalCardWidth / 2 +
+      cardDrag.x * FRAME_SCALE,
+  );
+  const finalCardY = Math.round(
+    cardYFull +
+      cardDrag.y * FRAME_SCALE -
+      (EST_CARD_HEIGHT * (cardScale - 1)) / 2,
+  );
+  const finalCaptionX = Math.round(FULL_W / 2 + captionDrag.x * FRAME_SCALE);
+  const finalCaptionY = Math.round(captionY + captionDrag.y * FRAME_SCALE);
 
   const displayPfp =
     effects.pfpStyle === "default"
@@ -369,39 +392,54 @@ export function VideoEffects() {
             "[Effects] textPlacement from server:",
             saved.textPlacement,
           );
-          // Merge saved over defaults (only known keys)
+          // Merge saved known-keys over defaults
           setEffects((prev) => {
             const merged = { ...prev };
             for (const k of Object.keys(
               DEFAULT_EFFECTS,
             ) as (keyof VideoEffectsState)[]) {
               if (saved[k] !== undefined) {
-                // Never load "custom" for placement fields
-                if (
-                  (k === "cardPlacement" || k === "textPlacement") &&
-                  saved[k] === "custom"
-                )
-                  continue;
                 (merged as any)[k] = saved[k];
               }
             }
-            // Explicitly restore cardPlacement and textPlacement
-            if (
-              saved.cardPlacement !== undefined &&
-              saved.cardPlacement !== "custom"
-            ) {
-              merged.cardPlacement = saved.cardPlacement;
-              setLastCardPlacement(saved.cardPlacement);
-            }
-            if (
-              saved.textPlacement !== undefined &&
-              saved.textPlacement !== "custom"
-            ) {
-              merged.textPlacement = saved.textPlacement;
-              setLastTextPlacement(saved.textPlacement);
-            }
             return merged;
           });
+          // Restore interactive position state (raw drag/scale) so the preview
+          // shows exactly what was saved.
+          if (
+            typeof saved.cardDragX === "number" &&
+            typeof saved.cardDragY === "number"
+          ) {
+            setCardDrag({ x: saved.cardDragX, y: saved.cardDragY });
+          }
+          if (
+            typeof saved.captionDragX === "number" &&
+            typeof saved.captionDragY === "number"
+          ) {
+            setCaptionDrag({ x: saved.captionDragX, y: saved.captionDragY });
+          }
+          if (typeof saved.cardScale === "number")
+            setCardScale(saved.cardScale);
+          if (typeof saved.captionScale === "number")
+            setCaptionScale(saved.captionScale);
+          // Restore placement labels (including "custom" — now safe because the
+          // server uses the absolute coordinates saved alongside the label).
+          if (saved.cardPlacement) {
+            const fallbackPreset =
+              saved.cardPlacement === "custom"
+                ? ((saved.lastCardPlacement as VerticalPlacement) ??
+                  (DEFAULT_EFFECTS.cardPlacement as VerticalPlacement))
+                : (saved.cardPlacement as VerticalPlacement);
+            setLastCardPlacement(fallbackPreset);
+          }
+          if (saved.textPlacement) {
+            const fallbackPreset =
+              saved.textPlacement === "custom"
+                ? ((saved.lastTextPlacement as VerticalPlacement) ??
+                  (DEFAULT_EFFECTS.textPlacement as VerticalPlacement))
+                : (saved.textPlacement as VerticalPlacement);
+            setLastTextPlacement(fallbackPreset);
+          }
         } else {
           console.warn("[Effects] No saved effects found in response");
         }
@@ -433,17 +471,31 @@ export function VideoEffects() {
           video_settings: {
             effects: {
               ...effects,
-              // Never persist "custom" — save the underlying preset instead
-              cardPlacement:
-                effects.cardPlacement === "custom"
-                  ? lastCardPlacement
-                  : effects.cardPlacement,
-              textPlacement:
-                effects.textPlacement === "custom"
-                  ? lastTextPlacement
-                  : effects.textPlacement,
-              // Include the selected preset URL so the pipeline can use it
+              // Persist the actual placement (including "custom") — the server
+              // uses the absolute coordinates below, so "custom" is safe.
+              cardPlacement: effects.cardPlacement,
+              textPlacement: effects.textPlacement,
+              // Last preset labels so the preview can restore dropdown state.
+              lastCardPlacement,
+              lastTextPlacement,
+              // Selected preset avatar URL
               selectedPfpUrl: selectedPfpUrl,
+              // Raw position state (preview px / unitless) — used to restore
+              // the interactive preview on reload.
+              cardDragX: cardDrag.x,
+              cardDragY: cardDrag.y,
+              captionDragX: captionDrag.x,
+              captionDragY: captionDrag.y,
+              cardScale,
+              captionScale,
+              // Derived absolute full-res coordinates — the server's source of
+              // truth for where to draw the card & captions. This guarantees
+              // the generated video matches the preview 1:1.
+              cardX: finalCardX,
+              cardY: finalCardY,
+              cardWidth: finalCardWidth,
+              captionX: finalCaptionX,
+              captionY: finalCaptionY,
             },
           },
         }),
@@ -455,7 +507,21 @@ export function VideoEffects() {
       console.error("Save effects error:", err);
       alert("Failed to save effects: " + err.message);
     }
-  }, [effects]);
+  }, [
+    effects,
+    cardDrag,
+    captionDrag,
+    cardScale,
+    captionScale,
+    lastCardPlacement,
+    lastTextPlacement,
+    selectedPfpUrl,
+    finalCardX,
+    finalCardY,
+    finalCardWidth,
+    finalCaptionX,
+    finalCaptionY,
+  ]);
 
   const update = <K extends keyof VideoEffectsState>(
     key: K,

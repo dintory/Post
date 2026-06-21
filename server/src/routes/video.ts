@@ -16,8 +16,15 @@ import { listTemplates } from "../services/templateService";
 import { listBackgrounds } from "../services/backgroundService";
 import { supabase, getSupabaseClient } from "../config/supabase";
 import type { VideoFormat } from "../types/video";
+import {
+  getCardLayoutFromPercent,
+  type FrameDimensions,
+  type VerticalPlacement,
+} from "../shared/layoutEngine";
 
 const VALID_FORMATS: VideoFormat[] = ["pov_slideshow", "reddit_story"];
+
+const OUTPUT_FRAME: FrameDimensions = { width: 1080, height: 1920 };
 
 const router = Router();
 
@@ -248,25 +255,51 @@ router.post("/process", requireAuth, async (req: any, res) => {
         effectsCapture.selectedPfpUrl,
       );
     }
-    // Inject card placement (overlay.marginTop)
-    if (effectsCapture.cardPlacement) {
-      // Values scaled from preview (360×640) to final output (1080×1920)
-      // Preview "top-16" = 64/640 → 192/1920, "bottom-24" = 96 from bottom → ~1150
-      const marginTop =
-        effectsCapture.cardPlacement === "top"
-          ? 80
-          : effectsCapture.cardPlacement === "center"
-            ? 540
-            : 1000;
+    // Inject card placement. Prefer absolute full-res coordinates sent by the
+    // client (guarantees 1:1 with the preview). Fall back to deriving them from
+    // the placement label via the shared layout engine (matches the client's
+    // preset formula exactly — do NOT use hardcoded magic numbers).
+    if (
+      effectsCapture.cardX != null &&
+      effectsCapture.cardY != null &&
+      effectsCapture.cardWidth != null
+    ) {
       effectsRedditConfig.overlay = {
         ...(effectsRedditConfig.overlay || {}),
-        marginTop,
+        marginTop: Math.round(effectsCapture.cardY),
+        cardX: Math.round(effectsCapture.cardX),
+        cardWidth: Math.round(effectsCapture.cardWidth),
       };
       console.log(
-        "[DEBUG:VIDEO] Set card placement:",
-        effectsCapture.cardPlacement,
-        "→ marginTop:",
-        marginTop,
+        "[DEBUG:VIDEO] Using absolute card position from client →",
+        "cardX:",
+        effectsCapture.cardX,
+        "cardY:",
+        effectsCapture.cardY,
+        "cardWidth:",
+        effectsCapture.cardWidth,
+      );
+    } else if (effectsCapture.cardPlacement) {
+      const placement: VerticalPlacement =
+        effectsCapture.cardPlacement === "custom"
+          ? "bottom"
+          : (effectsCapture.cardPlacement as VerticalPlacement);
+      const layout = getCardLayoutFromPercent(
+        OUTPUT_FRAME,
+        placement,
+        effectsCapture.cardWidthPercent ?? 52,
+      );
+      effectsRedditConfig.overlay = {
+        ...(effectsRedditConfig.overlay || {}),
+        marginTop: layout.y,
+        cardX: layout.x,
+        cardWidth: layout.width,
+      };
+      console.log(
+        "[DEBUG:VIDEO] Derived card position from placement:",
+        placement,
+        "→",
+        layout,
       );
     }
 
@@ -309,6 +342,9 @@ router.post("/process", requireAuth, async (req: any, res) => {
       captionOutlineEnabled: effectsCapture.captionOutline,
       captionOutlineWidth: effectsCapture.captionOutlineWidth,
       textPlacement: effectsCapture.textPlacement,
+      captionX: effectsCapture.captionX,
+      captionY: effectsCapture.captionY,
+      captionScale: effectsCapture.captionScale,
       captionAnimation: effectsCapture.captionAnimation,
       captionExit: effectsCapture.captionExit,
       cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,

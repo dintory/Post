@@ -80,3 +80,40 @@ export function getCaptionY(
   }
   return Math.round(frame.height / 2);
 }
+
+// ─── Card Layout from Width Percent (matches client preview formula) ────────
+
+/** Estimated card height at full resolution (matches VideoEffects.tsx EST_CARD_HEIGHT) */
+export const ESTIMATED_CARD_HEIGHT = 400;
+
+/** Default card width as a percentage of frame width */
+export const DEFAULT_CARD_WIDTH_PERCENT = 52;
+
+/**
+ * Compute absolute card layout (in frame pixels) from a width percent and a
+ * vertical placement, using the same formula as the client preview.
+ *
+ * The server uses this as a fallback when the client does not send explicit
+ * absolute card coordinates. Keeping it here (shared/) ensures the fallback
+ * matches the preview exactly.
+ */
+export function getCardLayoutFromPercent(
+  frame: FrameDimensions,
+  placement: VerticalPlacement,
+  cardWidthPercent: number = DEFAULT_CARD_WIDTH_PERCENT,
+  cardHeightEstimate: number = ESTIMATED_CARD_HEIGHT,
+): CardLayout {
+  const width = Math.round(frame.width * (cardWidthPercent / 100));
+  const x = Math.round((frame.width - width) / 2);
+  let y: number;
+  if (placement === "top") {
+    y = Math.round(frame.height * EDGE_SAFE_MARGIN_RATIO);
+  } else if (placement === "bottom") {
+    y = Math.round(
+      frame.height * (1 - EDGE_SAFE_MARGIN_RATIO) - cardHeightEstimate,
+    );
+  } else {
+    y = Math.round((frame.height - cardHeightEstimate) / 2);
+  }
+  return { x, y, width, height: cardHeightEstimate };
+}

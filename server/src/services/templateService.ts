@@ -8,8 +8,14 @@ export interface RedditRuntimeConfig extends Record<string, unknown> {
     position?: string;
     width?: number;
     scale?: number;
+    /** Absolute card top Y in full-res frame px (from client preview). */
     marginTop?: number;
+    /** Absolute card top X in full-res frame px (from client preview). */
+    cardX?: number;
+    /** Absolute card width in full-res frame px (from client preview). */
+    cardWidth?: number;
   };
+  cardWidthPercent?: number;
 }
 
 const TEMPLATES_DIR = path.join(__dirname, "../../templates");
@@ -32,6 +38,8 @@ export interface RedditTemplateConfig {
     width: number;
     scale: number;
     marginTop: number;
+    cardX?: number;
+    cardWidth?: number;
   };
   scriptFieldMapping: Record<string, keyof GeneratedScript | string>;
   defaults: Record<string, unknown>;

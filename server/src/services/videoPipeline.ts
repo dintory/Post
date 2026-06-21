@@ -20,6 +20,7 @@ import {
   speedUpAudio,
 } from "./ffmpegService";
 import type { VideoGenerationJob } from "../types/video";
+import { getCaptionY, type VerticalPlacement } from "../shared/layoutEngine";
 
 // ─── Concurrency limiter: max 1 pipeline at a time (512MB RAM limit) ──────
 const MAX_CONCURRENT_PIPELINES = 1;
@@ -75,6 +76,9 @@ export const runVideoPipeline = async (
     captionOutlineEnabled,
     captionOutlineWidth,
     textPlacement,
+    captionX,
+    captionY,
+    captionScale,
     captionAnimation,
     captionExit,
     cardWidthPercent,
@@ -310,9 +314,37 @@ export const runVideoPipeline = async (
             const outlineColor = captionOutlineEnabled
               ? "&H00000000"
               : "&H00FFFFFF";
-            // ASS alignment: 2=bottom center, 5=center, 8=top center
-            const assAlignment =
-              textPlacement === "top" ? 8 : textPlacement === "bottom" ? 2 : 5;
+            // Captions are top-anchored and positioned via \pos to match the
+            // client preview exactly (the preview uses `top: captionYPx`).
+            // ASS alignment 8 = top-center; \pos(x,y) places the top-center
+            // anchor at (x,y). Fontsize is scaled by captionScale.
+            const FRAME_W = 1080;
+            const FRAME_H = 1920;
+            // textPlacement is typed as a preset union, but the client may send
+            // "custom" at runtime — treat it as a string here.
+            const textPlacementRaw = textPlacement as string | undefined;
+            const resolvedTextPlacement: VerticalPlacement =
+              !textPlacementRaw || textPlacementRaw === "custom"
+                ? "center"
+                : (textPlacementRaw as VerticalPlacement);
+            const captionPos = {
+              x: Math.round(captionX != null ? captionX : FRAME_W / 2),
+              y: Math.round(
+                captionY != null
+                  ? captionY
+                  : getCaptionY(
+                      { width: FRAME_W, height: FRAME_H },
+                      resolvedTextPlacement,
+                    ),
+              ),
+            };
+            const captionFontScale =
+              typeof captionScale === "number" && captionScale > 0
+                ? captionScale
+                : 1;
+            const baseFontSize = Math.round(100 * captionFontScale);
+            // ASS alignment: 8 = top-center (used with \pos on every line)
+            const assAlignment = 8;
 
             const assLines: string[] = [
               `[Script Info]`,
@@ -323,7 +355,7 @@ export const runVideoPipeline = async (
               ``,
               `[V4+ Styles]`,
               `Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`,
-              `Style: Default,Arial,100,${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
+              `Style: Default,Arial,${baseFontSize},${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
               ``,
               `[Events]`,
               `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`,
@@ -334,27 +366,28 @@ export const runVideoPipeline = async (
             const FAD_MS = 250; // ms for \fad
             const MOVE_CS = 25; // cs for \move and \t (250ms = 25cs)
 
-            /** Build the ASS override tags for entrance animation */
+            /** Build the ASS override tags for entrance animation. Position is
+             * set via \pos (for non-move animations) or \move (for slide). */
             const getEntranceTag = (): string => {
               switch (captionAnimation) {
                 case "fade":
-                  return `{\\fad(${FAD_MS},0)}`;
+                  return `{\\fad(${FAD_MS},0)}{\\pos(${captionPos.x},${captionPos.y})}`;
                 case "slide":
-                  return `{\\move(840,0,540,0,0,${MOVE_CS})}`;
+                  return `{\\move(${captionPos.x + 300},${captionPos.y},${captionPos.x},${captionPos.y},0,${MOVE_CS})}`;
                 case "pop-out":
-                  return `{\\fscx130\\fscy130\\t(0,${MOVE_CS},\\fscx100\\fscy100)}`;
+                  return `{\\fscx130\\fscy130\\t(0,${MOVE_CS},\\fscx100\\fscy100)}{\\pos(${captionPos.x},${captionPos.y})}`;
                 default:
-                  return ""; // linear — no animation
+                  return `{\\pos(${captionPos.x},${captionPos.y})}`; // linear
               }
             };
 
-            /** Build the ASS override tags for exit animation */
+            /** Build the ASS override tags for exit animation (untimed variant). */
             const getExitTag = (): string => {
               switch (captionExit) {
                 case "fade":
                   return `{\\fad(0,${FAD_MS})}`;
                 case "slide-down":
-                  return `{\\move(540,0,540,40,0,${MOVE_CS})}`;
+                  return `{\\move(${captionPos.x},${captionPos.y},${captionPos.x},${captionPos.y + 40},0,${MOVE_CS})}`;
                 case "scale-down":
                   return `{\\t(0,${MOVE_CS},\\fscx10\\fscy10)}`;
                 default:
@@ -395,7 +428,7 @@ export const runVideoPipeline = async (
               let exitTagTimed = "";
               if (captionExit === "slide-down") {
                 const animStart = Math.max(0, totalCs - MOVE_CS);
-                exitTagTimed = `{\\move(540,0,540,40,${animStart},${totalCs})}`;
+                exitTagTimed = `{\\move(${captionPos.x},${captionPos.y},${captionPos.x},${captionPos.y + 40},${animStart},${totalCs})}`;
               } else if (captionExit === "scale-down") {
                 const animStart = Math.max(0, totalCs - MOVE_CS);
                 exitTagTimed = `{\\t(${animStart},${totalCs},\\fscx10\\fscy10)}`;

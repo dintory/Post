@@ -8,7 +8,12 @@ export interface SvgCardOverlayConfig {
   position?: string;
   width?: number;
   scale?: number;
+  /** Absolute card top Y in full-res frame px (sent by the client preview). */
   marginTop?: number;
+  /** Absolute card top X in full-res frame px (sent by the client preview). */
+  cardX?: number;
+  /** Absolute card width in full-res frame px (sent by the client preview). */
+  cardWidth?: number;
 }
 
 export interface SvgCardConfig {
@@ -37,9 +42,14 @@ export const generateRedditCardSvg = (
 ): void => {
   const W = 1080;
   const H = 1920;
-  const pct = config.cardWidthPercent ?? 52;
-  const cardWidth = Math.round(W * (pct / 100));
-  const cardX = Math.round((W - cardWidth) / 2);
+  const overlay = config.overlay || {};
+  // Prefer absolute coordinates sent by the client preview (1:1 match);
+  // fall back to deriving width/X from cardWidthPercent.
+  const cardWidth =
+    overlay.cardWidth ??
+    Math.round(W * ((config.cardWidthPercent ?? 52) / 100));
+  const cardX = overlay.cardX ?? Math.round((W - cardWidth) / 2);
+  const cardY = Math.round(overlay.marginTop ?? 54);
 
   const svg = renderCardSvg(
     {
@@ -53,7 +63,7 @@ export const generateRedditCardSvg = (
       comments: config.comments,
       showAwards: config.showAwards,
       avatarSrc: config.avatarSrc,
-      cardY: Math.round(config.overlay?.marginTop ?? 54),
+      cardY,
     },
     {
       width: W,

@@ -36,6 +36,12 @@ export interface VideoGenerationJob {
   captionOutlineWidth?: number;
   /** Vertical placement of captions */
   textPlacement?: "top" | "center" | "bottom";
+  /** Absolute caption center X in full-res (1080×1920) frame px. Overrides textPlacement horizontally. */
+  captionX?: number;
+  /** Absolute caption top Y in full-res (1080×1920) frame px. Overrides textPlacement vertically. */
+  captionY?: number;
+  /** Caption text scale multiplier (1 = default size). */
+  captionScale?: number;
   /** Caption entrance animation style */
   captionAnimation?: "pop-out" | "linear" | "slide" | "fade";
   /** Caption exit animation style */

@@ -5,6 +5,13 @@ import {
   getUserWebhookUrl,
   sendDiscordAlert,
 } from "../services/discordWebhook";
+import {
+  getCardLayoutFromPercent,
+  type FrameDimensions,
+  type VerticalPlacement,
+} from "../shared/layoutEngine";
+
+const OUTPUT_FRAME: FrameDimensions = { width: 1080, height: 1920 };
 
 const router = Router();
 
@@ -148,17 +155,34 @@ async function handleCheck(req: any, res: any) {
               if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
                 effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
               }
-              if (effects.cardPlacement) {
-                // Values scaled from preview (360×640) to final output (1080×1920)
-                const marginTop =
-                  effects.cardPlacement === "top"
-                    ? 80
-                    : effects.cardPlacement === "center"
-                      ? 540
-                      : 1000;
+              // Prefer absolute coordinates saved by the client preview;
+              // fall back to deriving from placement via the shared engine.
+              if (
+                effects.cardX != null &&
+                effects.cardY != null &&
+                effects.cardWidth != null
+              ) {
                 effectsRedditConfig.overlay = {
                   ...(effectsRedditConfig.overlay || {}),
-                  marginTop,
+                  marginTop: Math.round(effects.cardY),
+                  cardX: Math.round(effects.cardX),
+                  cardWidth: Math.round(effects.cardWidth),
+                };
+              } else if (effects.cardPlacement) {
+                const placement: VerticalPlacement =
+                  effects.cardPlacement === "custom"
+                    ? "bottom"
+                    : (effects.cardPlacement as VerticalPlacement);
+                const layout = getCardLayoutFromPercent(
+                  OUTPUT_FRAME,
+                  placement,
+                  effects.cardWidthPercent ?? 52,
+                );
+                effectsRedditConfig.overlay = {
+                  ...(effectsRedditConfig.overlay || {}),
+                  marginTop: layout.y,
+                  cardX: layout.x,
+                  cardWidth: layout.width,
                 };
               }
             }
@@ -177,6 +201,9 @@ async function handleCheck(req: any, res: any) {
             captionOutlineEnabled: effectsCapture.captionOutline,
             captionOutlineWidth: effectsCapture.captionOutlineWidth,
             textPlacement: effectsCapture.textPlacement,
+            captionX: effectsCapture.captionX,
+            captionY: effectsCapture.captionY,
+            captionScale: effectsCapture.captionScale,
             captionAnimation: effectsCapture.captionAnimation,
             captionExit: effectsCapture.captionExit,
             cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,
