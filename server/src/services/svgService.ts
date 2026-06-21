@@ -13,7 +13,6 @@ export interface SvgCardOverlayConfig {
   width?: number;
   scale?: number;
   marginTop?: number;
-  cardWidthPercent?: number;
 }
 
 export interface SvgCardConfig {
@@ -41,14 +40,16 @@ export const generateRedditCardSvg = (
   const W = 1080;
   const H = 1920;
 
-  // Use cardWidthPercent from effects (set by frontend preview), fallback to layout engine
-  const cwp = config.overlay?.cardWidthPercent ?? 52;
-  const cardWidth = Math.round(W * (cwp / 100));
-  const cardX = Math.round((W - cardWidth) / 2);
+  const { width: cardWidth, x: cardX } = getCardLayout(
+    { width: W, height: H },
+    "top",
+    0,
+  );
 
   const svg = renderCardSvg(
     {
       subreddit: config.subreddit,
+      username: config.username,
       timeAgo: config.timeAgo,
       postTitle: config.postTitle,
       postBody: config.postBody,

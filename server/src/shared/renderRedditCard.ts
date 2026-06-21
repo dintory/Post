@@ -124,7 +124,13 @@ function renderVotePill(
   y: number,
   height: number,
   text: string,
-  sizes: { padX: number; icon: number; innerGap: number; textFont: number; textRatio: number },
+  sizes: {
+    padX: number;
+    icon: number;
+    innerGap: number;
+    textFont: number;
+    textRatio: number;
+  },
 ): { width: number; svg: string } {
   const textW = estimateTextWidth(text, sizes.textFont, sizes.textRatio);
   const width = sizes.padX * 2 + sizes.icon * 2 + sizes.innerGap * 2 + textW;
@@ -148,10 +154,18 @@ function renderPill(
   height: number,
   text: string,
   iconPath: string,
-  sizes: { padX: number; icon: number; innerGap: number; textFont: number; textRatio: number },
+  sizes: {
+    padX: number;
+    icon: number;
+    innerGap: number;
+    textFont: number;
+    textRatio: number;
+  },
   iconOnly = false,
 ): { width: number; svg: string } {
-  const textW = iconOnly ? 0 : estimateTextWidth(text, sizes.textFont, sizes.textRatio);
+  const textW = iconOnly
+    ? 0
+    : estimateTextWidth(text, sizes.textFont, sizes.textRatio);
   const width = iconOnly
     ? sizes.padX * 2 + sizes.icon
     : sizes.padX * 2 + sizes.icon + sizes.innerGap + textW;
@@ -168,7 +182,12 @@ function renderPill(
   };
 }
 
-function renderAvatar(cx: number, cy: number, radius: number, avatarSrc?: string): string {
+function renderAvatar(
+  cx: number,
+  cy: number,
+  radius: number,
+  avatarSrc?: string,
+): string {
   if (avatarSrc) {
     const d = radius * 2;
     const x = cx - radius;
@@ -182,6 +201,7 @@ function renderAvatar(cx: number, cy: number, radius: number, avatarSrc?: string
 
 export interface CardContentConfig {
   subreddit?: string;
+  username?: string;
   timeAgo?: string;
   postTitle?: string;
   postBody?: string;
@@ -210,7 +230,7 @@ export function generateRedditCardSvg(
   const W = options.width ?? 1080;
   const H = options.height ?? 1920;
   const cardWidth = options.cardWidth ?? Math.round(W * 0.52);
-  const cardX = options.cardX ?? Math.round(W * (1 - 0.52) / 2);
+  const cardX = options.cardX ?? Math.round((W * (1 - 0.52)) / 2);
   const base64Regular = options.base64Regular;
   const base64Bold = options.base64Bold;
 
@@ -240,6 +260,8 @@ export function generateRedditCardSvg(
 
   const subredditRaw = (config.subreddit ?? "Stories").trim() || "Stories";
   const subreddit = withPrefix(subredditRaw.replace(/^r\//i, ""), "r/");
+  const username =
+    (config.username ?? "throwaway_8462").trim() || "throwaway_8462";
   const timeAgo = (config.timeAgo ?? "2 hr. ago").trim() || "2 hr. ago";
   const postTitle =
     (config.postTitle ?? "Your post title goes here").trim() ||
@@ -256,8 +278,13 @@ export function generateRedditCardSvg(
   const avatarCy = headerTop + avatarSize / 2;
   const metaX = innerX + avatarSize + headerGap;
   const metaBaseline = avatarCy + subredditFont * 0.35;
+  const usernameBaseline = metaBaseline + 3 * ui + subredditFont;
 
-  const titleTop = headerTop + avatarSize + headerMarginBottom;
+  const titleTop =
+    headerTop +
+    avatarSize +
+    headerMarginBottom +
+    (username ? subredditFont + 4 * ui : 0);
   const titleBaseline = titleTop + titleFont;
   const titleLines = wrapText(postTitle, innerW, titleFont * 0.54);
   const titleBottom = titleTop + titleLines.length * titleLineHeight;
@@ -274,17 +301,24 @@ export function generateRedditCardSvg(
 
   // ── Action bar sizing ──────────────────────────────────────────────
   const approxVoteW =
-    pillPadX * 2 + pillIcon * 2 + pillInnerGap * 2 +
+    pillPadX * 2 +
+    pillIcon * 2 +
+    pillInnerGap * 2 +
     estimateTextWidth(upvoteText, pillTextFont, 0.58);
   const approxCommentW =
-    pillPadX * 2 + pillIcon + pillInnerGap +
+    pillPadX * 2 +
+    pillIcon +
+    pillInnerGap +
     estimateTextWidth(commentText, pillTextFont, 0.58);
   const approxAwardW = pillPadX * 2 + pillIcon;
   const approxShareW = pillPadX * 2 + pillIcon;
   const approxGaps =
     actionsGap + actionGroupGap + (showAwards ? actionsGap : 0);
   const approxTotal =
-    approxVoteW + approxCommentW + approxShareW + approxGaps +
+    approxVoteW +
+    approxCommentW +
+    approxShareW +
+    approxGaps +
     (showAwards ? approxAwardW : 0);
 
   const pillScale = approxTotal > innerW ? (innerW - 4) / approxTotal : 1;
@@ -309,25 +343,55 @@ export function generateRedditCardSvg(
   const actionsY = bodyBottom + actionsMarginTop;
 
   let cursorX = innerX;
-  const votePill = renderVotePill(cursorX, actionsY, effPillHeight, upvoteText, effPillSizes);
+  const votePill = renderVotePill(
+    cursorX,
+    actionsY,
+    effPillHeight,
+    upvoteText,
+    effPillSizes,
+  );
   cursorX += votePill.width + effActionsGap;
-  const commentPill = renderPill(cursorX, actionsY, effPillHeight, commentText, commentIcon(), effPillSizes);
+  const commentPill = renderPill(
+    cursorX,
+    actionsY,
+    effPillHeight,
+    commentText,
+    commentIcon(),
+    effPillSizes,
+  );
   cursorX += commentPill.width + effActionGroupGap;
   const awardPill = showAwards
-    ? renderPill(cursorX, actionsY, effPillHeight, "", awardIcon(), effPillSizes, true)
+    ? renderPill(
+        cursorX,
+        actionsY,
+        effPillHeight,
+        "",
+        awardIcon(),
+        effPillSizes,
+        true,
+      )
     : null;
   if (awardPill) cursorX += awardPill.width + effActionsGap;
-  const sharePill = renderPill(cursorX, actionsY, effPillHeight, "", shareIcon(), effPillSizes, true);
+  const sharePill = renderPill(
+    cursorX,
+    actionsY,
+    effPillHeight,
+    "",
+    shareIcon(),
+    effPillSizes,
+    true,
+  );
 
   const cardHeight = actionsY + effPillHeight + pad - cardY;
 
-  const fontFace = (base64Regular || base64Bold)
-    ? `<style>
+  const fontFace =
+    base64Regular || base64Bold
+      ? `<style>
       ${base64Regular ? `@font-face { font-family: 'Inter'; src: url('data:font/woff2;base64,${base64Regular}') format('woff2'); font-weight: 400; }` : ""}
       ${base64Bold ? `@font-face { font-family: 'Inter'; src: url('data:font/woff2;base64,${base64Bold}') format('woff2'); font-weight: 700; }` : ""}
       text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     </style>`
-    : `<style>text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>`;
+      : `<style>text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
@@ -351,6 +415,7 @@ export function generateRedditCardSvg(
       <tspan font-weight="700" fill="#2E3640">${esc(subreddit)}</tspan>
       <tspan font-weight="400" fill="#5C6C74"> • ${esc(timeAgo)}</tspan>
     </text>
+    <text x="${metaX}" y="${usernameBaseline}" font-size="${subredditFont}" font-weight="400" fill="#5C6C74">${esc(username)}</text>
 
     ${titleLines.map((line, i) => `<text x="${innerX}" y="${titleBaseline + i * titleLineHeight}" font-size="${titleFont}" font-weight="600" fill="#11151A">${esc(line)}</text>`).join("\n    ")}
     ${bodyLines.map((line, i) => `<text x="${innerX}" y="${bodyBaseline + i * bodyLineHeight}" font-size="${bodyFont}" font-weight="400" fill="#5C6C74">${esc(line)}</text>`).join("\n    ")}
