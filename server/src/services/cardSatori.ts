@@ -28,14 +28,85 @@ export interface RedditCardConfig {
   upvoteState: UpvoteState;
 }
 
-// ─── Inline SVG icons matching lucide-react paths ───────────────────────────
+// ─── SVG icon element builders (Satori doesn't support dangerouslySetInnerHTML) ──
 
-const COMMENT_ICON =
-  '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-const SHARE_ICON =
-  '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 6 12 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="2" x2="12" y2="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-const AWARD_ICON =
-  '<circle cx="12" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+function commentSvg(textSub: string) {
+  return {
+    type: "svg",
+    props: {
+      width: 16,
+      height: 16,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: textSub,
+      strokeWidth: 2,
+      strokeLinecap: "round" as const,
+      strokeLinejoin: "round" as const,
+      children: {
+        type: "path",
+        props: {
+          d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+        },
+      },
+    },
+  };
+}
+
+function shareSvg(textSub: string) {
+  return {
+    type: "svg",
+    props: {
+      width: 16,
+      height: 16,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: textSub,
+      strokeWidth: 2,
+      strokeLinecap: "round" as const,
+      strokeLinejoin: "round" as const,
+      children: [
+        {
+          type: "path",
+          props: { d: "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" },
+        },
+        {
+          type: "polyline",
+          props: { points: "16 6 12 2 8 6" },
+        },
+        {
+          type: "line",
+          props: { x1: "12", y1: "2", x2: "12", y2: "15" },
+        },
+      ],
+    },
+  };
+}
+
+function awardSvg(textSub: string) {
+  return {
+    type: "svg",
+    props: {
+      width: 16,
+      height: 16,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: textSub,
+      strokeWidth: 2,
+      strokeLinecap: "round" as const,
+      strokeLinejoin: "round" as const,
+      children: [
+        {
+          type: "circle",
+          props: { cx: "12", cy: "8", r: "6" },
+        },
+        {
+          type: "path",
+          props: { d: "M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" },
+        },
+      ],
+    },
+  };
+}
 
 function formatCount(n: number): string {
   if (n >= 1_000_000)
@@ -378,18 +449,7 @@ export async function renderCardToPng(
                                 fontWeight: 700,
                               },
                               children: [
-                                {
-                                  type: "svg",
-                                  props: {
-                                    width: 16,
-                                    height: 16,
-                                    viewBox: "0 0 24 24",
-                                    dangerouslySetInnerHTML: {
-                                      __html: COMMENT_ICON,
-                                    },
-                                    style: { color: textSub },
-                                  },
-                                },
+                                commentSvg(textSub),
                                 `${formatCount(config.comments)} Comments`,
                               ],
                             },
@@ -408,21 +468,7 @@ export async function renderCardToPng(
                                 fontSize: 12,
                                 fontWeight: 700,
                               },
-                              children: [
-                                {
-                                  type: "svg",
-                                  props: {
-                                    width: 16,
-                                    height: 16,
-                                    viewBox: "0 0 24 24",
-                                    dangerouslySetInnerHTML: {
-                                      __html: SHARE_ICON,
-                                    },
-                                    style: { color: textSub },
-                                  },
-                                },
-                                "Share",
-                              ],
+                              children: [shareSvg(textSub), "Share"],
                             },
                           },
                           // Award button
@@ -439,21 +485,7 @@ export async function renderCardToPng(
                                 fontSize: 12,
                                 fontWeight: 700,
                               },
-                              children: [
-                                {
-                                  type: "svg",
-                                  props: {
-                                    width: 16,
-                                    height: 16,
-                                    viewBox: "0 0 24 24",
-                                    dangerouslySetInnerHTML: {
-                                      __html: AWARD_ICON,
-                                    },
-                                    style: { color: textSub },
-                                  },
-                                },
-                                "Award",
-                              ],
+                              children: [awardSvg(textSub), "Award"],
                             },
                           },
                         ],
