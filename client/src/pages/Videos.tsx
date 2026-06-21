@@ -60,6 +60,9 @@ const statusLabels: Record<string, string> = {
   failed: "Failed",
 };
 
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://post-rtc8.onrender.com";
+
 export function Videos() {
   const navigate = useNavigate();
   const [videos, setVideos] = useState<VideoJob[]>([]);
@@ -1341,7 +1344,7 @@ export function Videos() {
                 style={{ width: 280, height: 497 }}
               >
                 <video
-                  src={`/api/video/preview/${playingVideoId}`}
+                  src={`${API_BASE}/api/video/preview/${playingVideoId}`}
                   controls
                   autoPlay
                   playsInline
@@ -1350,7 +1353,7 @@ export function Videos() {
               </div>
 
               <a
-                href={`/api/video/preview/${playingVideoId}`}
+                href={`${API_BASE}/api/video/preview/${playingVideoId}`}
                 download={`short-${playingVideoId}.mp4`}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#10b981] text-zinc-950 text-xs font-bold hover:bg-[#10b981]/90 transition-colors"
               >

@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import type { RedditCardConfig } from "../../templates/reddit";
 
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://post-rtc8.onrender.com";
+
 interface VideoCreatorProps {
   onClose?: () => void;
   onCreate?: (video: any) => void;
@@ -1317,7 +1320,7 @@ export function VideoCreator({
               style={{ width: 270, height: 480 }}
             >
               <video
-                src={`/api/video/preview/${jobId}`}
+                src={`${API_BASE}/api/video/preview/${jobId}`}
                 controls
                 autoPlay
                 playsInline
@@ -1327,7 +1330,7 @@ export function VideoCreator({
 
             <div className="flex items-center gap-3">
               <a
-                href={`/api/video/preview/${jobId}`}
+                href={`${API_BASE}/api/video/preview/${jobId}`}
                 download={`reddit-story-${jobId}.mp4`}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#10b981] text-zinc-950 text-sm font-bold hover:bg-[#10b981]/90 transition-colors"
               >
