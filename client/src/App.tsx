@@ -1,7 +1,14 @@
-import { Routes, Route, useLocation, useRouteError } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  Routes,
+  Route,
+  useLocation,
+  useRouteError,
+  useNavigate,
+  Link,
+} from "react-router-dom";
+import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Home } from "./pages/Home";
@@ -50,12 +57,20 @@ const validRoutes = [
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
   const isHome = location.pathname === "/";
   const isLogin = location.pathname === "/login";
   const isErrorPage =
     !isHome && !isLogin && !validRoutes.includes(location.pathname);
   const showSidebar = !isHome && !isLogin && !isErrorPage;
+
+  // Redirect authenticated users away from login/signup
+  useEffect(() => {
+    if (isAuthenticated && (isLogin || isHome)) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, isLogin, isHome, navigate]);
 
   // Three layout modes: sidebar (valid routes), header (home/login), clean (error pages)
   if (isErrorPage) {

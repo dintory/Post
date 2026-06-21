@@ -10,7 +10,9 @@ import {
   Settings,
   ChevronDown,
   HelpCircle,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const menuItems = [
   {
@@ -68,6 +70,7 @@ const bottomItems = [{ href: "/help", label: "Help Center", icon: HelpCircle }];
 
 export function Sidebar() {
   const location = useLocation();
+  const { logout } = useAuth();
   const [openItems, setOpenItems] = useState<string[]>(["/settings"]);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -238,6 +241,13 @@ export function Sidebar() {
             </Link>
           );
         })}
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-[#505050] hover:bg-[#1A1A1A] hover:text-rose-400 transition-all duration-150"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Log out</span>
+        </button>
       </div>
     </aside>
   );
