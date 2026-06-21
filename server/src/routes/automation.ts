@@ -179,6 +179,7 @@ async function handleCheck(req: any, res: any) {
             textPlacement: effectsCapture.textPlacement,
             captionAnimation: effectsCapture.captionAnimation,
             captionExit: effectsCapture.captionExit,
+            cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,
             token: serviceRoleKey,
             autoUpload: true,
             refreshToken: ytRefreshToken || undefined,

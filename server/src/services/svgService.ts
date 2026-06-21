@@ -1,10 +1,6 @@
 import fs from "fs";
 import sharp from "sharp";
-import { getCardLayout } from "../shared/layoutEngine";
-import {
-  generateRedditCardSvg as renderCardSvg,
-  type CardContentConfig,
-} from "../shared/renderRedditCard";
+import { generateRedditCardSvg as renderCardSvg } from "../shared/renderRedditCard";
 
 // ─── Public Types (kept for backward compatibility) ─────────────────────────
 
@@ -27,6 +23,7 @@ export interface SvgCardConfig {
   showAwards?: boolean;
   avatarSrc?: string;
   overlay?: SvgCardOverlayConfig;
+  cardWidthPercent?: number;
 }
 
 // ─── SVG Generator (calls shared renderer, writes to disk) ──────────────────
@@ -39,12 +36,9 @@ export const generateRedditCardSvg = (
 ): void => {
   const W = 1080;
   const H = 1920;
-
-  const { width: cardWidth, x: cardX } = getCardLayout(
-    { width: W, height: H },
-    "top",
-    0,
-  );
+  const pct = config.cardWidthPercent ?? 52;
+  const cardWidth = Math.round(W * (pct / 100));
+  const cardX = Math.round((W - cardWidth) / 2);
 
   const svg = renderCardSvg(
     {

@@ -311,6 +311,7 @@ router.post("/process", requireAuth, async (req: any, res) => {
       textPlacement: effectsCapture.textPlacement,
       captionAnimation: effectsCapture.captionAnimation,
       captionExit: effectsCapture.captionExit,
+      cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,
       token: req.token,
     });
 

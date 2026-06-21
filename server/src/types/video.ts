@@ -42,4 +42,6 @@ export interface VideoGenerationJob {
   captionExit?: "fade" | "slide-down" | "scale-down" | "none";
   /** Authenticated Supabase JWT token to run DB operations under the user session */
   token?: string;
+  /** Reddit card width as percentage of frame width (30-90), default 52 */
+  cardWidthPercent?: number;
 }

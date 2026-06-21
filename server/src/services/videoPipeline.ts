@@ -77,6 +77,7 @@ export const runVideoPipeline = async (
     textPlacement,
     captionAnimation,
     captionExit,
+    cardWidthPercent,
   } = job;
   const now = new Date().toISOString();
 
@@ -206,6 +207,10 @@ export const runVideoPipeline = async (
           const resolvedRedditConfig = redditConfig
             ? resolveRedditCardConfig(redditConfig)
             : resolveRedditCardConfig(buildRedditCardConfig(script));
+          // Inject card width from user effects
+          if (cardWidthPercent != null) {
+            resolvedRedditConfig.cardWidthPercent = cardWidthPercent;
+          }
           console.log(
             "[DEBUG:PIPELINE] resolvedRedditConfig:",
             JSON.stringify(resolvedRedditConfig, null, 2),
