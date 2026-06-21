@@ -156,7 +156,8 @@ export async function renderCardToPng(
 
   const cardW = options.width;
 
-  const svg = await satori(
+  // Satori can hang on external image fetches — wrap with a timeout
+  const satoriPromise = satori(
     {
       type: "div",
       props: {
@@ -281,17 +282,23 @@ export async function renderCardToPng(
                                 flexShrink: 0,
                                 border: `1px solid ${border}`,
                               },
+                              // Use data URI for avatar to avoid Satori hanging on network fetch
                               children: {
-                                type: "img",
+                                type: "div",
                                 props: {
-                                  src: config.avatarSrc || undefined,
-                                  width: 20,
-                                  height: 20,
                                   style: {
-                                    objectFit: "cover",
                                     width: "100%",
                                     height: "100%",
+                                    borderRadius: "50%",
+                                    background: "#FF4500",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 10,
+                                    color: "white",
+                                    fontWeight: 700,
                                   },
+                                  children: "R",
                                 },
                               },
                             },
@@ -308,7 +315,7 @@ export async function renderCardToPng(
                               },
                               children: [
                                 {
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: {
                                       fontSize: 12,
@@ -319,21 +326,21 @@ export async function renderCardToPng(
                                   },
                                 },
                                 {
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: { fontSize: 12, color: textSub },
                                     children: "•",
                                   },
                                 },
                                 {
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: { fontSize: 12, color: textSub },
                                     children: `Posted by u/${config.username || "anonymous"}`,
                                   },
                                 },
                                 {
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: { fontSize: 12, color: textSub },
                                     children: config.timeAgo || "4 hours ago",
@@ -348,10 +355,10 @@ export async function renderCardToPng(
 
                     // Title
                     {
-                      type: "h3",
+                      type: "div",
                       props: {
                         style: {
-                          margin: "0 0 6px 0",
+                          marginBottom: 6,
                           fontSize: 18,
                           fontWeight: 700,
                           color: textMain,
@@ -367,10 +374,10 @@ export async function renderCardToPng(
                     ...(config.postBody
                       ? [
                           {
-                            type: "p",
+                            type: "div",
                             props: {
                               style: {
-                                margin: "0 0 8px 0",
+                                marginBottom: 8,
                                 fontSize: 14,
                                 color: textMain,
                                 lineHeight: 1.6,
@@ -401,14 +408,14 @@ export async function renderCardToPng(
                               },
                               children: [
                                 ...["🏆", "⭐", "🎖️", "💎", "🌟"].map((a) => ({
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: { fontSize: 14 },
                                     children: a,
                                   },
                                 })),
                                 {
-                                  type: "span",
+                                  type: "div",
                                   props: {
                                     style: {
                                       fontSize: 12,
@@ -510,6 +517,16 @@ export async function renderCardToPng(
     },
   );
 
+  const svg = await Promise.race([
+    satoriPromise,
+    new Promise<string>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Satori rendering timed out after 30s")),
+        30_000,
+      ),
+    ),
+  ]);
+
   // Convert SVG to PNG
   const resvg = new Resvg(svg, {
     fitTo: {
@@ -519,5 +536,6 @@ export async function renderCardToPng(
     background: "rgba(0,0,0,0)",
   });
   const pngData = resvg.render();
+  console.log(`[CardSatori] Rendered ${cardW}x${options.height} card PNG`);
   return Buffer.from(pngData.asPng());
 }
