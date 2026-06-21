@@ -4,6 +4,7 @@ import os from "os";
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth";
 import { runVideoPipeline } from "../services/videoPipeline";
+import { getCardLayout } from "../shared/layoutEngine";
 import {
   generateScript,
   listPromptTemplates,
@@ -248,19 +249,22 @@ router.post("/process", requireAuth, async (req: any, res) => {
         effectsCapture.selectedPfpUrl,
       );
     }
-    // Inject card placement (overlay.marginTop)
-    if (effectsCapture.cardPlacement) {
-      // Values scaled from preview (360×640) to final output (1080×1920)
-      // Preview "top-16" = 64/640 → 192/1920, "bottom-24" = 96 from bottom → ~1150
-      const marginTop =
-        effectsCapture.cardPlacement === "top"
-          ? 80
-          : effectsCapture.cardPlacement === "center"
-            ? 540
-            : 1000;
+    // Inject card placement (overlay.marginTop) — same calc as preview
+    if (
+      effectsCapture.cardPlacement &&
+      effectsCapture.cardPlacement !== "custom"
+    ) {
+      const layout = getCardLayout(
+        { width: 1080, height: 1920 },
+        effectsCapture.cardPlacement,
+        400,
+      );
+      const marginTop = layout.y;
+      const cardWidthPercent = effectsCapture.cardWidthPercent ?? 56;
       effectsRedditConfig.overlay = {
         ...(effectsRedditConfig.overlay || {}),
         marginTop,
+        cardWidthPercent,
       };
       console.log(
         "[DEBUG:VIDEO] Set card placement:",

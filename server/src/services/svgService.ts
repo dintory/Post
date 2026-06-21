@@ -1,7 +1,10 @@
 import fs from "fs";
 import sharp from "sharp";
 import { getCardLayout } from "../shared/layoutEngine";
-import { renderCardToPng, type RedditCardConfig } from "./cardSatori";
+import {
+  generateRedditCardSvg as renderCardSvg,
+  type CardContentConfig,
+} from "../shared/renderRedditCard";
 
 // ─── Public Types (kept for backward compatibility) ─────────────────────────
 
@@ -10,6 +13,7 @@ export interface SvgCardOverlayConfig {
   width?: number;
   scale?: number;
   marginTop?: number;
+  cardWidthPercent?: number;
 }
 
 export interface SvgCardConfig {
@@ -26,53 +30,49 @@ export interface SvgCardConfig {
   overlay?: SvgCardOverlayConfig;
 }
 
-// ─── Card PNG Generator (uses Satori to render RedditCard.tsx identically) ──
+// ─── SVG Generator (calls shared renderer, writes to disk) ──────────────────
 
-export const generateRedditCardSvg = async (
+export const generateRedditCardSvg = (
   config: SvgCardConfig,
   outputPath: string,
-): Promise<void> => {
-  // RedditCard.tsx is 540px wide — render at that size for sharp overlay
-  const cardPng = await renderCardToPng(
-    {
-      username: config.username ?? "throwaway_8472",
-      subreddit: config.subreddit ?? "AskReddit",
-      postTitle: config.postTitle ?? "Your post title goes here",
-      postBody: config.postBody ?? "",
-      upvotes: config.upvotes ?? 99,
-      comments: config.comments ?? 99,
-      timeAgo: config.timeAgo ?? "6 hours ago",
-      theme: "dark",
-      showVerified: config.showVerified ?? false,
-      showAwards: config.showAwards ?? false,
-      avatarSrc: config.avatarSrc ?? "",
-      upvoteState: "none",
-    },
-    { width: 540, height: 600 },
-  );
-
-  // Scale from 540px card width to the overlay size in the 1080 frame
+  base64Regular?: string,
+  base64Bold?: string,
+): void => {
   const W = 1080;
   const H = 1920;
-  const { width: cardWidth } = getCardLayout({ width: W, height: H }, "top", 0);
-  const scale = cardWidth / 540;
 
-  // Resize the 540px card PNG to the actual overlay dimensions via sharp
-  const overlayWidth = Math.round(540 * scale);
-  const overlayHeight = Math.round(600 * scale);
+  // Use cardWidthPercent from effects (set by frontend preview), fallback to layout engine
+  const cwp = config.overlay?.cardWidthPercent ?? 52;
+  const cardWidth = Math.round(W * (cwp / 100));
+  const cardX = Math.round((W - cardWidth) / 2);
 
-  await sharp(cardPng)
-    .resize(overlayWidth, overlayHeight, {
-      fit: "fill",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
-    .png()
-    .toFile(outputPath);
+  const svg = renderCardSvg(
+    {
+      subreddit: config.subreddit,
+      timeAgo: config.timeAgo,
+      postTitle: config.postTitle,
+      postBody: config.postBody,
+      upvotes: config.upvotes,
+      comments: config.comments,
+      showAwards: config.showAwards,
+      avatarSrc: config.avatarSrc,
+      cardY: Math.round(config.overlay?.marginTop ?? 54),
+    },
+    {
+      width: W,
+      height: H,
+      cardX,
+      cardWidth,
+      base64Regular,
+      base64Bold,
+    },
+  );
 
-  console.log(`[SVG Service] Reddit card PNG written → ${outputPath}`);
+  fs.writeFileSync(outputPath, svg);
+  console.log(`[SVG Service] Reddit card written → ${outputPath}`);
 };
 
-// ─── SVG → PNG conversion (kept for callers that still use it) ──────────────
+// ─── SVG → PNG conversion ──────────────────────────────────────────────────
 
 export const svgToPng = async (
   svgPath: string,

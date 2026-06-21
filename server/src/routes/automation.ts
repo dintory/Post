@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getSupabaseClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
+import { getCardLayout } from "../shared/layoutEngine";
 import {
   getUserWebhookUrl,
   sendDiscordAlert,
@@ -148,17 +149,18 @@ async function handleCheck(req: any, res: any) {
               if (effects.pfpStyle === "default" && effects.selectedPfpUrl) {
                 effectsRedditConfig.avatarSrc = effects.selectedPfpUrl;
               }
-              if (effects.cardPlacement) {
-                // Values scaled from preview (360×640) to final output (1080×1920)
-                const marginTop =
-                  effects.cardPlacement === "top"
-                    ? 80
-                    : effects.cardPlacement === "center"
-                      ? 540
-                      : 1000;
+              if (effects.cardPlacement && effects.cardPlacement !== "custom") {
+                const layout = getCardLayout(
+                  { width: 1080, height: 1920 },
+                  effects.cardPlacement,
+                  400,
+                );
+                const marginTop = layout.y;
+                const cardWidthPercent = effects.cardWidthPercent ?? 56;
                 effectsRedditConfig.overlay = {
                   ...(effectsRedditConfig.overlay || {}),
                   marginTop,
+                  cardWidthPercent,
                 };
               }
             }
