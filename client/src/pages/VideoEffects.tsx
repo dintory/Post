@@ -317,14 +317,18 @@ export function VideoEffects() {
       ? lastTextPlacement
       : (effects.textPlacement as VerticalPlacement);
 
-  const cardLayout = getCardLayout(
-    { width: FULL_W, height: FULL_H },
-    effectiveCardPlacement,
-    EST_CARD_HEIGHT,
+  const cardYPx = Math.round(
+    (getCardLayout(
+      { width: FULL_W, height: FULL_H },
+      effectiveCardPlacement,
+      EST_CARD_HEIGHT,
+    ).y *
+      PREVIEW_H) /
+      FULL_H,
   );
-  const cardXpx = Math.round((cardLayout.x * PREVIEW_W) / FULL_W);
-  const cardYPx = Math.round((cardLayout.y * PREVIEW_H) / FULL_H);
-  const cardWidthPx = Math.round((cardLayout.width * PREVIEW_W) / FULL_W);
+  // Wider preview card (still positioned by layout engine for vertical)
+  const previewCardW = Math.round(PREVIEW_W * 0.72);
+  const previewCardL = Math.round((PREVIEW_W - previewCardW) / 2);
 
   const captionY = getCaptionY(
     { width: FULL_W, height: FULL_H },
@@ -608,9 +612,9 @@ export function VideoEffects() {
                   : "cursor-grab"
               }`}
               style={{
-                left: `${cardXpx}px`,
+                left: `${previewCardL}px`,
                 top: `${cardYPx}px`,
-                width: `${cardWidthPx}px`,
+                width: `${previewCardW}px`,
                 scale: cardScale,
                 transformOrigin: "center center",
                 touchAction: "none",
@@ -646,9 +650,10 @@ export function VideoEffects() {
                 >
                   <Maximize2 className="w-3 h-3 text-white" />
                 </div>
-                {/* Card preview — HTML mockup matching reference design */}
-                <div className="bg-white rounded-xl p-3 shadow-lg w-full h-full flex flex-col justify-center overflow-hidden">
-                  <div className="flex items-start gap-2 mb-1.5">
+                {/* Card preview — redesigned for readability and centered layout */}
+                <div className="bg-white rounded-xl p-4 shadow-lg w-full h-full overflow-hidden">
+                  {/* Header row — avatar + meta on one compact line */}
+                  <div className="flex items-center gap-2.5 mb-2">
                     {displayPfp ? (
                       <img
                         src={displayPfp}
@@ -670,73 +675,78 @@ export function VideoEffects() {
                         </svg>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-bold text-[#2E3640]">
-                          r/Stories
-                        </span>
-                        <span className="text-[10px] text-[#5C6C74]">•</span>
-                        <span className="text-[10px] text-[#5C6C74]">
-                          2 hr. ago
-                        </span>
+                    <div>
+                      <div className="text-[11px] font-bold text-[#2E3640] leading-tight">
+                        r/Stories
+                      </div>
+                      <div className="text-[9px] text-[#5C6C74] leading-tight">
+                        u/throwaway_8462 • 2 hr. ago
                       </div>
                     </div>
                   </div>
-                  <p className="text-[11px] font-semibold text-[#11151A] leading-tight line-clamp-2 mb-1">
+                  {/* Title — centered */}
+                  <p className="text-center text-[12px] font-semibold text-[#11151A] leading-snug mb-2.5">
                     My neighbor left a note on my car that said &ldquo;Learn how
                     to park.&rdquo; So I left one on his.
                   </p>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#E5EBEE] text-[9px] font-semibold text-black">
+                  {/* Action pills — centered row */}
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#E5EBEE]">
                       <svg
                         fill="black"
-                        height="10"
+                        height="11"
                         viewBox="0 0 20 20"
-                        width="10"
+                        width="11"
                       >
                         <path d="M10 19a3.966 3.966 0 0 1-3.96-3.962V10.98H2.838a1.73 1.73 0 0 1-1.605-1.073 1.73 1.73 0 0 1 .377-1.895L9.364.254a.925.925 0 0 1 1.272 0l7.754 7.759c.498.499.646 1.242.376 1.894s-.9 1.073-1.605 1.073h-3.202v4.058A3.965 3.965 0 0 1 9.999 19zM2.989 9.179H7.84v5.731c0 1.13.81 2.163 1.934 2.278a2.163 2.163 0 0 0 2.386-2.15V9.179h4.851L10 2.163z" />
                       </svg>
-                      <span>2.4k</span>
+                      <span className="text-[10px] font-semibold text-black leading-none">
+                        2.4k
+                      </span>
                       <svg
                         fill="black"
-                        height="10"
+                        height="11"
                         viewBox="0 0 20 20"
-                        width="10"
+                        width="11"
                       >
                         <path d="M10 1a3.966 3.966 0 0 1 3.96 3.962V9.02h3.202c.706 0 1.335.42 1.605 1.073.27.652.122 1.396-.377 1.895l-7.754 7.759a.925.925 0 0 1-1.272 0l-7.754-7.76a1.73 1.73 0 0 1-.376-1.894c.27-.652.9-1.073 1.605-1.073h3.202V4.962A3.965 3.965 0 0 1 10 1m7.01 9.82h-4.85V5.09c0-1.13-.81-2.163-1.934-2.278a2.163 2.163 0 0 0-2.386 2.15v5.859H2.989l7.01 7.016z" />
                       </svg>
                     </span>
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#E5EBEE] text-[9px] font-semibold text-black">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#E5EBEE]">
                       <svg
                         fill="black"
-                        height="10"
+                        height="11"
                         viewBox="0 0 20 20"
-                        width="10"
+                        width="11"
                       >
                         <path d="M10 1a9 9 0 0 0-9 9c0 1.947.79 3.58 1.935 4.957L.231 17.661A.784.784 0 0 0 .785 19H10a9 9 0 0 0 9-9 9 9 0 0 0-9-9m0 16.2H6.162c-.994.004-1.907.053-3.045.144l-.076-.188a37 37 0 0 0 2.328-2.087l-1.05-1.263C3.297 12.576 2.8 11.331 2.8 10c0-3.97 3.23-7.2 7.2-7.2s7.2 3.23 7.2 7.2-3.23 7.2-7.2 7.2" />
                       </svg>
-                      <span>89</span>
+                      <span className="text-[10px] font-semibold text-black leading-none">
+                        89
+                      </span>
                     </span>
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E5EBEE]">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#E5EBEE]">
                       <svg
                         fill="black"
-                        height="10"
+                        height="11"
                         viewBox="0 0 20 20"
-                        width="10"
+                        width="11"
                       >
                         <path d="m18.75 14.536-2.414-3.581A6.95 6.95 0 0 0 17 8c0-3.86-3.14-7-6.999-7S3.002 4.14 3.002 8c0 1.057.242 2.056.664 2.955l-2.414 3.581c-.289.428-.33.962-.109 1.429.22.467.658.776 1.173.826l1.575.151.758 1.494a1.44 1.44 0 0 0 1.297.795c.482 0 .926-.234 1.198-.639l2.437-3.612c.14.008.28.021.423.021s.282-.013.423-.021l2.437 3.612c.272.405.716.639 1.198.639q.046 0 .094-.003a1.44 1.44 0 0 0 1.203-.791l.758-1.495 1.576-.151c.514-.05.952-.358 1.172-.826a1.43 1.43 0 0 0-.109-1.429zM10 2.8A5.205 5.205 0 0 1 15.2 8c0 2.867-2.333 5.2-5.2 5.2A5.205 5.205 0 0 1 4.801 8c0-2.867 2.332-5.2 5.2-5.2zM5.982 17.09l-.937-1.846-1.974-.189 1.66-2.462a7 7 0 0 0 2.936 1.999zm10.947-2.035-1.974.189-.937 1.846-1.685-2.499a7 7 0 0 0 2.936-1.999l1.66 2.462z" />
                       </svg>
                     </span>
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#E5EBEE] text-[9px] font-semibold text-black">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#E5EBEE]">
                       <svg
                         fill="black"
-                        height="10"
+                        height="11"
                         viewBox="0 0 20 20"
-                        width="10"
+                        width="11"
                       >
                         <path d="m12.8 17.524 6.89-6.887a.9.9 0 0 0 0-1.273L12.8 2.477a1.64 1.64 0 0 0-1.782-.349 1.64 1.64 0 0 0-1.014 1.518v2.593C4.054 6.728 1.192 12.075 1 17.376a1.35 1.35 0 0 0 .862 1.32 1.35 1.35 0 0 0 1.531-.364l.334-.381c1.705-1.944 3.323-3.791 6.277-4.103v2.509c0 .667.398 1.262 1.014 1.518a1.64 1.64 0 0 0 1.783-.349zm-.994-1.548V12h-.9c-3.969 0-6.162 2.1-8.001 4.161.514-4.011 2.823-8.16 8-8.16h.9V4.024L17.784 10z" />
                       </svg>
-                      <span>8</span>
+                      <span className="text-[10px] font-semibold text-black leading-none">
+                        8
+                      </span>
                     </span>
                   </div>
                 </div>
