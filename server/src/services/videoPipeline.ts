@@ -323,7 +323,7 @@ export const runVideoPipeline = async (
               ``,
               `[V4+ Styles]`,
               `Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`,
-              `Style: Default,Impact,100,${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
+              `Style: Default,Arial,100,${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
               ``,
               `[Events]`,
               `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`,

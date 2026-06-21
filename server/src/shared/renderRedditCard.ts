@@ -205,6 +205,7 @@ export interface CardContentConfig {
   timeAgo?: string;
   postTitle?: string;
   postBody?: string;
+  showBody?: boolean;
   upvotes?: number;
   comments?: number;
   showAwards?: boolean;
@@ -266,7 +267,7 @@ export function generateRedditCardSvg(
   const postTitle =
     (config.postTitle ?? "Your post title goes here").trim() ||
     "Your post title goes here";
-  const postBody = (config.postBody ?? "").trim();
+  const postBody = config.showBody ? (config.postBody ?? "").trim() : "";
   const upvoteText = formatCompactCount(config.upvotes ?? 99);
   const commentText = formatCompactCount(config.comments ?? 99);
   const showAwards = config.showAwards ?? false;

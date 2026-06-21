@@ -24,6 +24,7 @@ export interface SvgCardConfig {
   avatarSrc?: string;
   overlay?: SvgCardOverlayConfig;
   cardWidthPercent?: number;
+  showBody?: boolean;
 }
 
 // ─── SVG Generator (calls shared renderer, writes to disk) ──────────────────
@@ -47,6 +48,7 @@ export const generateRedditCardSvg = (
       timeAgo: config.timeAgo,
       postTitle: config.postTitle,
       postBody: config.postBody,
+      showBody: config.showBody,
       upvotes: config.upvotes,
       comments: config.comments,
       showAwards: config.showAwards,
