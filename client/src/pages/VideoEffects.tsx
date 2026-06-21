@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   getCaptionY,
   type VerticalPlacement,
 } from "@/shared/layoutEngine";
+import { generateRedditCardSvg } from "@/shared/renderRedditCard";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -332,6 +333,41 @@ export function VideoEffects() {
   );
   const captionYPx = Math.round((captionY * PREVIEW_H) / FULL_H);
 
+  const displayPfp =
+    effects.pfpStyle === "default"
+      ? selectedPfpUrl
+      : effects.pfpStyle === "custom"
+        ? customPfpUrl || selectedPfpUrl
+        : null;
+
+  // ── Generate preview SVG from shared renderer ──────────────────────────
+  const previewSvg = useMemo(() => {
+    return generateRedditCardSvg(
+      {
+        subreddit: "Stories",
+        timeAgo: "2 hr. ago",
+        postTitle:
+          'My neighbor left a note on my car that said "Learn how to park." So I left one on his.',
+        postBody:
+          "I can't believe people actually do this. I came out to my car this morning and found a sticky note on my windshield.",
+        upvotes: 2400,
+        comments: 89,
+        showAwards: true,
+        avatarSrc: displayPfp ?? undefined,
+        cardY: Math.round((cardYPx * FULL_H) / PREVIEW_H),
+      },
+      {
+        width: FULL_W,
+        height: FULL_H,
+        cardX: Math.round((cardXpx * FULL_W) / PREVIEW_W),
+        cardWidth: Math.round((cardWidthPx * FULL_W) / PREVIEW_W),
+      },
+    ).replace(
+      '<svg width="1080" height="1920"',
+      '<svg width="100%" height="100%"',
+    );
+  }, [displayPfp, cardXpx, cardYPx, cardWidthPx]);
+
   // ── Load saved effects on mount ────────────────────────────────────────
   const [savedToast, setSavedToast] = useState(false);
 
@@ -449,13 +485,6 @@ export function VideoEffects() {
   ) => {
     setEffects((prev) => ({ ...prev, [key]: value }));
   };
-
-  const displayPfp =
-    effects.pfpStyle === "default"
-      ? selectedPfpUrl
-      : effects.pfpStyle === "custom"
-        ? customPfpUrl || selectedPfpUrl
-        : null;
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
@@ -616,15 +645,7 @@ export function VideoEffects() {
                     : "none",
               }}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-xl p-3 shadow-lg relative group"
-                style={{
-                  boxShadow:
-                    "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)",
-                }}
-              >
+              <div className="relative w-full h-full group">
                 {/* Resize handle for card */}
                 <div
                   className="absolute -bottom-2 -right-2 w-5 h-5 bg-[#10b981] rounded-full cursor-se-resize z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
@@ -650,59 +671,12 @@ export function VideoEffects() {
                 >
                   <Maximize2 className="w-3 h-3 text-white" />
                 </div>
-                <div className="flex items-start gap-3">
-                  {/* PFP */}
-                  {displayPfp && (
-                    <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[#D9D9D9]">
-                      <img
-                        src={displayPfp}
-                        alt="PFP"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://www.redditstatic.com/avatars/avatar_default_02_7E3E9C.png";
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-xs font-bold text-[#2E3640]">
-                        r/Stories
-                      </span>
-                      <span className="text-[10px] text-[#5C6C74]">•</span>
-                      <span className="text-[10px] text-[#5C6C74]">
-                        u/throwaway_8462
-                      </span>
-                    </div>
-                    <p className="text-sm font-semibold text-[#11151A] leading-tight line-clamp-3 mb-0.5">
-                      My neighbor left a note on my car that said \"Learn how to
-                      park.\" So I left one on his.
-                    </p>
-                    <p className="text-[11px] text-[#5C6C74] leading-snug line-clamp-2">
-                      I can't believe people actually do this. I came out to my
-                      car this morning and found a sticky note on my windshield.
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span className="text-xs leading-none">⬆</span>
-                        <span>2.4k</span>
-                      </span>
-                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span className="text-xs leading-none">💬</span>
-                        <span>89</span>
-                      </span>
-                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span className="text-xs leading-none">🏆</span>
-                      </span>
-                      <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-[#F2F4F5] text-[11px] font-semibold text-[#2E3640]">
-                        <span className="text-xs leading-none">↗</span>
-                        <span>Share</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                {/* SVG card from shared renderer */}
+                <div
+                  className="w-full h-full overflow-hidden rounded-xl"
+                  dangerouslySetInnerHTML={{ __html: previewSvg }}
+                />
+              </div>
             </motion.div>
 
             {/* Caption area — draggable */}
