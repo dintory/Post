@@ -1,4 +1,6 @@
 import fs from "fs";
+import path from "path";
+import https from "https";
 import sharp from "sharp";
 import { generateRedditCardSvg as renderCardSvg } from "../shared/renderRedditCard";
 
@@ -32,14 +34,52 @@ export interface SvgCardConfig {
   showBody?: boolean;
 }
 
+// ─── Avatar download helper ────────────────────────────────────────────────
+
+/**
+ * Download an external avatar URL and return a base64 data URI so that
+ * sharp / librsvg can render it (they cannot fetch external HTTP resources).
+ * Returns the original URL unchanged if it's already a data URI or local path.
+ */
+async function resolveAvatarSrc(src?: string): Promise<string | undefined> {
+  if (!src) return undefined;
+  // Already a data URI or a local file — use as-is
+  if (
+    src.startsWith("data:") ||
+    src.startsWith("file:") ||
+    !src.startsWith("http")
+  ) {
+    return src;
+  }
+  try {
+    const data = await new Promise<Buffer>((resolve, reject) => {
+      https
+        .get(src, (res) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (chunk: Buffer) => chunks.push(chunk));
+          res.on("end", () => resolve(Buffer.concat(chunks)));
+          res.on("error", reject);
+        })
+        .on("error", reject);
+    });
+    const ext = src.split(".").pop()?.split("?")[0] || "png";
+    const mime =
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+    return `data:${mime};base64,${data.toString("base64")}`;
+  } catch (err) {
+    console.warn(`[SVG] Failed to download avatar, using fallback: ${err}`);
+    return undefined; // fall back to Snoo icon
+  }
+}
+
 // ─── SVG Generator (calls shared renderer, writes to disk) ──────────────────
 
-export const generateRedditCardSvg = (
+export const generateRedditCardSvg = async (
   config: SvgCardConfig,
   outputPath: string,
   base64Regular?: string,
   base64Bold?: string,
-): void => {
+): Promise<void> => {
   const W = 1080;
   const H = 1920;
   const overlay = config.overlay || {};
@@ -50,6 +90,9 @@ export const generateRedditCardSvg = (
     Math.round(W * ((config.cardWidthPercent ?? 52) / 100));
   const cardX = overlay.cardX ?? Math.round((W - cardWidth) / 2);
   const cardY = Math.round(overlay.marginTop ?? 54);
+
+  // Download external avatar and inline as base64 data URI so sharp can render it
+  const avatarSrc = await resolveAvatarSrc(config.avatarSrc);
 
   const svg = renderCardSvg(
     {

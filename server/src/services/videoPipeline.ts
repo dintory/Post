@@ -223,7 +223,7 @@ export const runVideoPipeline = async (
             "[DEBUG:PIPELINE] overlay.marginTop in resolved:",
             resolvedRedditConfig?.overlay?.marginTop,
           );
-          generateRedditCardSvg(resolvedRedditConfig, svgPath);
+          await generateRedditCardSvg(resolvedRedditConfig, svgPath);
           await svgToPng(svgPath, overlayPngPath);
           cleanupFiles(svgPath); // SVG no longer needed
         }
