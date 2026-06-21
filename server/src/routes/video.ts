@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import https from "https";
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth";
 import { runVideoPipeline } from "../services/videoPipeline";
@@ -385,9 +386,51 @@ router.get("/preview/:id", requireAuth, async (req: any, res) => {
 
     const r2Url: string = data.r2_url ?? "";
 
-    // Redirect to public R2 URL if not local preview
+    // Proxy R2 video through the server so the browser gets it from the
+    // same origin as the page — no CORS issues, auth is handled server-side.
     if (r2Url.startsWith("http://") || r2Url.startsWith("https://")) {
-      return res.redirect(302, r2Url);
+      // Fetch video metadata first for range request support
+      const parsed = new URL(r2Url);
+      const options: https.RequestOptions & {
+        headers: Record<string, string>;
+      } = {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: "GET",
+        headers: {} as Record<string, string>,
+      };
+
+      // If the client sent a Range header, forward it to R2 so seeking works
+      const rangeHeader = req.headers.range;
+      if (rangeHeader) {
+        options.headers["Range"] = rangeHeader as string;
+      }
+
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Accept-Ranges", "bytes");
+
+      const proxyReq = https.request(options, (proxyRes) => {
+        // Forward R2's status code (206 for partial content, 200 for full)
+        res.statusCode = proxyRes.statusCode || 200;
+        // Forward R2's content headers
+        if (proxyRes.headers["content-length"]) {
+          res.setHeader("Content-Length", proxyRes.headers["content-length"]!);
+        }
+        if (proxyRes.headers["content-range"]) {
+          res.setHeader("Content-Range", proxyRes.headers["content-range"]!);
+        }
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on("error", (err) => {
+        console.error("[Route] Proxy error:", err);
+        if (!res.headersSent) {
+          return res.status(502).json({ error: "Failed to proxy video" });
+        }
+      });
+
+      proxyReq.end();
+      return;
     }
 
     if (!r2Url.startsWith("local://")) {

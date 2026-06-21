@@ -80,6 +80,27 @@ router.post("/logout", (req, res) => {
   return res.status(200).json({ message: "Logged out successfully" });
 });
 
+router.post("/token", async (req, res) => {
+  const { refresh_token } = req.body;
+  if (!refresh_token) {
+    return res.status(400).json({ error: "refresh_token is required" });
+  }
+  const { data, error } = await supabase.auth.refreshSession({
+    refresh_token,
+  });
+  if (error || !data.session) {
+    return res.status(401).json({ error: "Failed to refresh token" });
+  }
+  // Update the httpOnly cookie so video elements and other server-reliant
+  // requests continue to work after token refresh.
+  res.cookie("access_token", data.session.access_token, cookieOptions);
+  res.cookie("refresh_token", data.session.refresh_token, cookieOptions);
+  return res.status(200).json({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  });
+});
+
 router.get("/me", requireAuth, (req, res) => {
   // @ts-ignore
   return res.status(200).json({ user: req.user });

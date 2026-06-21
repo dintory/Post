@@ -41,33 +41,18 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   try {
-    // Supabase's token refresh endpoint
-    const res = await fetch(`${API_BASE}/auth/token?grant_type=refresh_token`, {
+    // Prefer the server's /auth/token endpoint which also updates the
+    // httpOnly cookie (needed for <video> elements and other requests
+    // that don't use the Authorization header).
+    const res = await fetch(`${API_BASE}/auth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: "include",
     });
 
-    if (!res.ok) {
-      // Try the Supabase REST API directly
-      const supabaseUrl =
-        import.meta.env.VITE_SUPABASE_URL ||
-        "https://hbqwsanncmfvbnvnwxgm.supabase.co";
-      const supabaseRes = await fetch(
-        `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey:
-              import.meta.env.VITE_SUPABASE_ANON_KEY ||
-              "sb_publishable_uHaV-A4k6-jpvXNeWtOZBA_vwZQt1dz",
-          },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        },
-      );
-      if (!supabaseRes.ok) return null;
-      const data = await supabaseRes.json();
+    if (res.ok) {
+      const data = await res.json();
       if (data.access_token) {
         localStorage.setItem("access_token", data.access_token);
         if (data.refresh_token)
@@ -77,7 +62,25 @@ async function refreshAccessToken(): Promise<string | null> {
       return null;
     }
 
-    const data = await res.json();
+    // Fall back to Supabase REST API directly
+    const supabaseUrl =
+      import.meta.env.VITE_SUPABASE_URL ||
+      "https://hbqwsanncmfvbnvnwxgm.supabase.co";
+    const supabaseRes = await fetch(
+      `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey:
+            import.meta.env.VITE_SUPABASE_ANON_KEY ||
+            "sb_publishable_uHaV-A4k6-jpvXNeWtOZBA_vwZQt1dz",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      },
+    );
+    if (!supabaseRes.ok) return null;
+    const data = await supabaseRes.json();
     if (data.access_token) {
       localStorage.setItem("access_token", data.access_token);
       if (data.refresh_token)
@@ -190,6 +193,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // ── Periodic token refresh ("Remember Me") ────────────────────────────
+  // Refresh the access token every 30 minutes so the session stays alive
+  // even when the browser isn't making API calls. Without this, the JWT
+  // expires after ~1 hour and the user gets logged out unexpectedly.
+  useEffect(() => {
+    const interval = setInterval(
+      async () => {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          await refreshAccessToken();
+        }
+      },
+      30 * 60 * 1000,
+    ); // 30 minutes
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <AuthContext.Provider
