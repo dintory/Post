@@ -105,7 +105,7 @@ export const generateRedditCardSvg = async (
       upvotes: config.upvotes,
       comments: config.comments,
       showAwards: config.showAwards,
-      avatarSrc: config.avatarSrc,
+      avatarSrc, // use the resolved data URI (downloaded + base64-encoded)
       cardY,
     },
     {

@@ -192,7 +192,7 @@ function renderAvatar(
     const d = radius * 2;
     const x = cx - radius;
     const y = cy - radius;
-    return `<g><clipPath id="avatarClip"><circle cx="${cx}" cy="${cy}" r="${radius}"/></clipPath><image x="${x}" y="${y}" width="${d}" height="${d}" preserveAspectRatio="xMidYMid slice" href="${esc(avatarSrc)}" clip-path="url(#avatarClip)"/></g>`;
+    return `<g><clipPath id="avatarClip"><circle cx="${cx}" cy="${cy}" r="${radius}"/></clipPath><image x="${x}" y="${y}" width="${d}" height="${d}" preserveAspectRatio="xMidYMid slice" href="${esc(avatarSrc)}" xlink:href="${esc(avatarSrc)}" clip-path="url(#avatarClip)"/></g>`;
   }
   return `<g><circle cx="${cx}" cy="${cy}" r="${radius}" fill="#FF4500"/><path d="M ${cx - radius * 0.5} ${cy + radius * 0.15} Q ${cx} ${cy - radius * 0.7} ${cx + radius * 0.5} ${cy + radius * 0.15} Z" fill="white"/></g>`;
 }
@@ -395,7 +395,7 @@ export function generateRedditCardSvg(
       : `<style>text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
     ${fontFace}
     <filter id="cardShadow" x="-10%" y="-10%" width="130%" height="140%">
