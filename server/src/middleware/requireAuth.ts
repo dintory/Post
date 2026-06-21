@@ -6,11 +6,13 @@ export const requireAuth = async (
   res: Response,
   next: NextFunction,
 ) => {
-  // Check Authorization header first (Bearer token), then fall back to cookie
+  // Check Authorization header first (Bearer token), then cookie, then query param
+  // (query param is used by <video> and <a download> which can't set headers).
   const authHeader = req.headers.authorization;
   const token =
     (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined) ||
-    req.cookies.access_token;
+    req.cookies.access_token ||
+    (req.query.token as string | undefined);
 
   if (!token) {
     return res
