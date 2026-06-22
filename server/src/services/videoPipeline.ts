@@ -589,7 +589,9 @@ export const runVideoPipeline = async (
 
                 // Use the generated script title (actual story title) instead
                 // of the automation-generated title for YouTube upload.
-                const ytTitle = script?.title || title;
+                // YouTube titles are limited to 100 characters.
+                let ytTitle = (script?.title || title).trim().slice(0, 100);
+                if (!ytTitle) ytTitle = title;
 
                 // Replace {title} in description with the actual story title
                 if (uploadOptions.description) {
