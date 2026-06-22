@@ -44,6 +44,10 @@ async function handleCheck(req: any, res: any) {
       .select("*")
       .eq("enabled", true);
 
+    console.log(
+      `[Automation] Fetched ${schedules?.length ?? 0} enabled schedules`,
+    );
+
     if (error) {
       console.error("[Automation] Fetch error:", error);
       return res.status(500).json({ error: error.message });
@@ -70,13 +74,14 @@ async function handleCheck(req: any, res: any) {
     for (const schedule of schedules || []) {
       const type = schedule.schedule_type || "weekly";
       let shouldFire = false;
+      let sinceScheduled = 0;
 
       if (type === "weekly") {
         if (schedule.day_of_week !== currentDay) continue;
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
         // Minutes since the scheduled time today (handles midnight wraparound)
-        let sinceScheduled = currentMinutes - scheduledMinutes;
+        sinceScheduled = currentMinutes - scheduledMinutes;
         if (sinceScheduled < 0) sinceScheduled += 24 * 60;
         // Only fire within the fire window (0..FIRE_WINDOW_MIN after scheduled time)
         if (sinceScheduled > FIRE_WINDOW_MIN) continue;
@@ -84,7 +89,7 @@ async function handleCheck(req: any, res: any) {
       } else if (type === "daily") {
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
-        let sinceScheduled = currentMinutes - scheduledMinutes;
+        sinceScheduled = currentMinutes - scheduledMinutes;
         if (sinceScheduled < 0) sinceScheduled += 24 * 60;
         if (sinceScheduled > FIRE_WINDOW_MIN) continue;
         shouldFire = true;
@@ -105,13 +110,17 @@ async function handleCheck(req: any, res: any) {
         if (schedule.month_day !== currentMonthDay) continue;
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
-        let sinceScheduled = currentMinutes - scheduledMinutes;
+        sinceScheduled = currentMinutes - scheduledMinutes;
         if (sinceScheduled < 0) sinceScheduled += 24 * 60;
         if (sinceScheduled > FIRE_WINDOW_MIN) continue;
         shouldFire = true;
       }
 
       if (!shouldFire) continue;
+
+      console.log(
+        `[Automation] 🔥 schedule=${schedule.id} type=${type} time_utc=${schedule.time_utc} currentMin=${currentMinutes} since=${sinceScheduled}`,
+      );
 
       // Per-type cooldown to prevent double-fire within the same cycle
       if (type !== "interval" && schedule.last_run_at) {
