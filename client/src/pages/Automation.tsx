@@ -74,16 +74,22 @@ function formatTime(timeUtc: string): string {
  * Convert a local time string to UTC.
  * Also returns the UTC day-of-week since the date may roll over.
  */
-function localToUtc(timeLocal: string): { utcTime: string; utcDay: number } {
+function localToUtc(
+  timeLocal: string,
+  localDay?: number,
+): { utcTime: string; utcDay: number } {
   const [h, m] = timeLocal.split(":").map(Number);
   const now = new Date();
-  const local = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    h,
-    m,
-  );
+  // If a specific day-of-week was selected (weekly schedule), compute the
+  // next calendar date that falls on that day. Otherwise use today's date.
+  let targetDate = now.getDate();
+  if (localDay !== undefined) {
+    const currentDay = now.getDay();
+    let diff = localDay - currentDay;
+    if (diff <= 0) diff += 7; // next occurrence of that day
+    targetDate = now.getDate() + diff;
+  }
+  const local = new Date(now.getFullYear(), now.getMonth(), targetDate, h, m);
   return {
     utcTime: `${String(local.getUTCHours()).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`,
     utcDay: local.getUTCDay(),
@@ -231,7 +237,7 @@ export function Automation() {
       };
 
       if (scheduleType === "weekly") {
-        const { utcTime, utcDay } = localToUtc(getTime24());
+        const { utcTime, utcDay } = localToUtc(getTime24(), newDay);
         body.day_of_week = utcDay; // Use UTC day to match cron
         body.time_utc = utcTime;
       } else if (scheduleType === "daily") {

@@ -410,17 +410,17 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
       fields.interval_hours = null;
       fields.month_day = null;
     } else if (type === "daily") {
-      fields.day_of_week = null;
+      fields.day_of_week = 0; // placeholder — only used for weekly matching
       fields.time_utc = time_utc;
       fields.interval_hours = null;
       fields.month_day = null;
     } else if (type === "interval") {
-      fields.day_of_week = null;
+      fields.day_of_week = 0;
       fields.time_utc = null;
       fields.interval_hours = interval_hours;
       fields.month_day = null;
     } else if (type === "monthly") {
-      fields.day_of_week = null;
+      fields.day_of_week = 0;
       fields.time_utc = time_utc;
       fields.interval_hours = null;
       fields.month_day = month_day;
