@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const CHAT_TIMEOUT_MS = 180_000; // 3 minutes (was 120s — automation needs more headroom)
+const CHAT_TIMEOUT_MS = 300_000; // 5 minutes — OpenRouter can be slow for long scripts
 const IMAGE_TIMEOUT_MS = 180_000; // 3 minutes
 
 export interface OpenRouterMessage {

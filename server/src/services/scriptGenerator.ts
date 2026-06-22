@@ -157,7 +157,7 @@ export const generateScript = async (
   if (!response.choices || response.choices.length === 0) {
     console.error(
       "[ScriptGen] OpenRouter returned no choices:",
-      JSON.stringify(response).slice(0, 500),
+      JSON.stringify(response).slice(0, 1000),
     );
     throw new Error(
       "OpenRouter returned an empty response — no choices available",
