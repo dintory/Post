@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { chatCompletion } from './openRouter';
-import type { VideoFormat } from '../types/video';
+import fs from "fs";
+import path from "path";
+import { chatCompletion } from "./openRouter";
+import type { VideoFormat } from "../types/video";
 
 export interface PromptVariable {
   required?: boolean;
@@ -19,7 +19,7 @@ export interface PromptTemplate {
     max_tokens: number;
   };
   variables: Record<string, PromptVariable>;
-  messages: { role: 'system' | 'user'; content: string }[];
+  messages: { role: "system" | "user"; content: string }[];
 }
 
 export interface ScriptSection {
@@ -51,7 +51,7 @@ export interface ScriptGenerationInput {
   aiModel?: string;
 }
 
-const PROMPTS_DIR = path.join(__dirname, '../../prompts');
+const PROMPTS_DIR = path.join(__dirname, "../../prompts");
 
 const promptCache = new Map<string, PromptTemplate>();
 
@@ -64,38 +64,48 @@ export const loadPromptTemplate = (format: VideoFormat): PromptTemplate => {
     throw new Error(`No prompt template found for format: ${format}`);
   }
 
-  const raw = fs.readFileSync(filePath, 'utf-8');
+  const raw = fs.readFileSync(filePath, "utf-8");
   const template = JSON.parse(raw) as PromptTemplate;
   promptCache.set(format, template);
   return template;
 };
 
-export const listPromptTemplates = (): { id: string; label: string; format: VideoFormat }[] => {
-  const indexPath = path.join(PROMPTS_DIR, 'index.json');
-  const index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-  return index.prompts.map((p: { id: string; file: string; description: string }) => {
-    const template = loadPromptTemplate(p.id as VideoFormat);
-    return { id: template.id, label: template.label, format: template.format };
-  });
+export const listPromptTemplates = (): {
+  id: string;
+  label: string;
+  format: VideoFormat;
+}[] => {
+  const indexPath = path.join(PROMPTS_DIR, "index.json");
+  const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+  return index.prompts.map(
+    (p: { id: string; file: string; description: string }) => {
+      const template = loadPromptTemplate(p.id as VideoFormat);
+      return {
+        id: template.id,
+        label: template.label,
+        format: template.format,
+      };
+    },
+  );
 };
 
 const interpolate = (text: string, vars: Record<string, string>): string => {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? '');
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? "");
 };
 
 const buildVariables = (
   template: PromptTemplate,
-  input: ScriptGenerationInput
+  input: ScriptGenerationInput,
 ): Record<string, string> => {
   const vars: Record<string, string> = { title: input.title };
 
   for (const [key, config] of Object.entries(template.variables)) {
-    if (key === 'title') continue;
+    if (key === "title") continue;
     const inputValue = input[key as keyof ScriptGenerationInput];
     vars[key] =
-      (typeof inputValue === 'string' ? inputValue : undefined) ??
+      (typeof inputValue === "string" ? inputValue : undefined) ??
       config.default ??
-      '';
+      "";
   }
 
   for (const [key, config] of Object.entries(template.variables)) {
@@ -109,18 +119,21 @@ const buildVariables = (
 
 const parseScriptJson = (content: string): GeneratedScript => {
   const trimmed = content.trim();
-  const jsonMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, trimmed];
+  const jsonMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [
+    null,
+    trimmed,
+  ];
   const jsonStr = jsonMatch[1]?.trim() ?? trimmed;
 
   try {
     return JSON.parse(jsonStr) as GeneratedScript;
   } catch {
-    throw new Error('Failed to parse script JSON from AI response');
+    throw new Error("Failed to parse script JSON from AI response");
   }
 };
 
 export const generateScript = async (
-  input: ScriptGenerationInput
+  input: ScriptGenerationInput,
 ): Promise<{ script: GeneratedScript; raw: string; model: string }> => {
   const template = loadPromptTemplate(input.format);
   const vars = buildVariables(template, input);
@@ -130,7 +143,9 @@ export const generateScript = async (
     content: interpolate(msg.content, vars),
   }));
 
-  console.log(`[ScriptGen] Generating ${input.format} script for "${input.title}" via OpenRouter`);
+  console.log(
+    `[ScriptGen] Generating ${input.format} script for "${input.title}" via OpenRouter`,
+  );
 
   const response = await chatCompletion({
     model: template.model,
@@ -139,19 +154,30 @@ export const generateScript = async (
     max_tokens: template.parameters.max_tokens,
   });
 
+  if (!response.choices || response.choices.length === 0) {
+    console.error(
+      "[ScriptGen] OpenRouter returned no choices:",
+      JSON.stringify(response).slice(0, 500),
+    );
+    throw new Error(
+      "OpenRouter returned an empty response — no choices available",
+    );
+  }
+
   const rawContent = response.choices[0]?.message?.content;
-  const content = typeof rawContent === 'string'
-    ? rawContent
-    : rawContent?.find((p) => p.type === 'text')?.text;
+  const content =
+    typeof rawContent === "string"
+      ? rawContent
+      : rawContent?.find((p) => p.type === "text")?.text;
 
   if (!content) {
-    throw new Error('OpenRouter returned an empty response');
+    throw new Error("OpenRouter returned an empty response");
   }
 
   const script = parseScriptJson(content);
 
   console.log(
-    `[ScriptGen] Generated ${script.sections?.length ?? 0} sections (~${script.totalEstimatedDuration})`
+    `[ScriptGen] Generated ${script.sections?.length ?? 0} sections (~${script.totalEstimatedDuration})`,
   );
 
   return { script, raw: content, model: template.model };
