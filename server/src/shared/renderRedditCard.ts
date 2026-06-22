@@ -240,8 +240,20 @@ export function generateRedditCardSvg(
 
   const pad = 20 * ui;
   const cardRadius = 8 * ui;
-  const avatarSize = 32 * ui;
+  const subredditFont = 12 * ui;
+  const titleFont = 18 * ui;
+  const titleLineHeight = 24 * ui;
+  const bodyFont = 12 * ui;
+  const bodyLineHeight = 16 * ui;
+  const pillTextFont = 12 * ui;
+
+  // Header layout: avatar on the left, two stacked text lines (subreddit +
+  // username) on the right. The avatar spans the full header text block and
+  // is vertically centered on it so it aligns cleanly with both lines.
   const headerGap = 10 * ui;
+  const headerInnerGap = 3 * ui;
+  const headerTextHeight = subredditFont * 2 + headerInnerGap;
+  const avatarSize = headerTextHeight;
   const headerMarginBottom = 6 * ui;
   const titleMarginBottom = 8 * ui;
   const actionsMarginTop = 8 * ui;
@@ -251,13 +263,6 @@ export function generateRedditCardSvg(
   const pillPadY = 7 * ui;
   const pillInnerGap = 6 * ui;
   const pillIcon = 16 * ui;
-
-  const subredditFont = 12 * ui;
-  const titleFont = 18 * ui;
-  const titleLineHeight = 24 * ui;
-  const bodyFont = 12 * ui;
-  const bodyLineHeight = 16 * ui;
-  const pillTextFont = 12 * ui;
 
   const subredditRaw = (config.subreddit ?? "Stories").trim() || "Stories";
   const subreddit = withPrefix(subredditRaw.replace(/^r\//i, ""), "r/");
@@ -275,24 +280,22 @@ export function generateRedditCardSvg(
   const innerX = cardX + pad;
   const innerW = cardWidth - pad * 2;
   const headerTop = cardY + pad;
+  // Vertically center the avatar on the full header block (subreddit + gap +
+  // username) so the avatar spans both lines.
   const avatarCx = innerX + avatarSize / 2;
-  const avatarCy = headerTop + avatarSize / 2;
+  const avatarCy = headerTop + headerTextHeight / 2;
   const metaX = innerX + avatarSize + headerGap;
-  const metaBaseline = avatarCy + subredditFont * 0.35;
-  const usernameBaseline = metaBaseline + 3 * ui + subredditFont;
+  const metaBaseline = headerTop + subredditFont;
+  const usernameBaseline = metaBaseline + headerInnerGap + subredditFont;
 
-  const titleTop =
-    headerTop +
-    avatarSize +
-    headerMarginBottom +
-    (username ? subredditFont + 4 * ui : 0);
+  const titleTop = headerTop + headerTextHeight + headerMarginBottom;
   const titleBaseline = titleTop + titleFont;
   const titleLines = wrapText(postTitle, innerW, titleFont * 0.54);
   const titleBottom = titleTop + titleLines.length * titleLineHeight;
 
   const bodyTop = titleBottom + titleMarginBottom;
   const bodyLines = postBody
-    ? clampLines(postBody, innerW, bodyFont * 0.56, 2)
+    ? clampLines(postBody, innerW, bodyFont * 0.56, 4)
     : [];
   const bodyBaseline = bodyTop + bodyFont;
   const bodyBottom =

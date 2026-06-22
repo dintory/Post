@@ -570,23 +570,6 @@ export const runVideoPipeline = async (
                   .eq("user_id", userId)
                   .maybeSingle();
 
-                if (settings?.video_settings) {
-                  const vs = settings.video_settings;
-                  uploadOptions.privacyStatus = vs.privacy || "public";
-                  uploadOptions.categoryId =
-                    CATEGORY_MAP[vs.category] || undefined;
-                  uploadOptions.defaultLanguage = vs.language || undefined;
-
-                  // Build description from template
-                  const descTemplate = vs.description || "";
-                  if (descTemplate) {
-                    uploadOptions.description = descTemplate.replace(
-                      /{title}/g,
-                      title,
-                    );
-                  }
-                }
-
                 // Use the generated script title (actual story title) instead
                 // of the automation-generated title for YouTube upload.
                 // YouTube titles are limited to 100 characters.
@@ -600,12 +583,24 @@ export const runVideoPipeline = async (
                   if (hookFallback) ytTitle = hookFallback;
                 }
 
-                // Replace {title} in description with the actual story title
-                if (uploadOptions.description) {
-                  uploadOptions.description = uploadOptions.description.replace(
-                    /{title}/g,
-                    ytTitle,
-                  );
+                if (settings?.video_settings) {
+                  const vs = settings.video_settings;
+                  uploadOptions.privacyStatus = vs.privacy || "public";
+                  uploadOptions.categoryId =
+                    CATEGORY_MAP[vs.category] || undefined;
+                  uploadOptions.defaultLanguage = vs.language || undefined;
+
+                  // Build description from template, using the resolved
+                  // ytTitle (script's actual story title) for {title} so the
+                  // auto-generated automation title never leaks into the
+                  // YouTube description.
+                  const descTemplate = vs.description || "";
+                  if (descTemplate) {
+                    uploadOptions.description = descTemplate.replace(
+                      /{title}/g,
+                      ytTitle,
+                    );
+                  }
                 }
 
                 const finalDesc =
