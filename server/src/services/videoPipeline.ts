@@ -593,6 +593,13 @@ export const runVideoPipeline = async (
                 let ytTitle = (script?.title || title).trim().slice(0, 100);
                 if (!ytTitle) ytTitle = title;
 
+                // If the script title was empty (AI sometimes omits it), use
+                // the first ~90 chars of the hook as a fallback story title.
+                if (!ytTitle || ytTitle === title) {
+                  const hookFallback = script?.hook?.trim().slice(0, 90) || "";
+                  if (hookFallback) ytTitle = hookFallback;
+                }
+
                 // Replace {title} in description with the actual story title
                 if (uploadOptions.description) {
                   uploadOptions.description = uploadOptions.description.replace(
