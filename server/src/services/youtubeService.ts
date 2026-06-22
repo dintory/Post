@@ -283,15 +283,37 @@ export const uploadVideo = async (
     requestBody.snippet.defaultLanguage = options.defaultLanguage;
   }
 
-  const res = await youtube.videos.insert({
-    part: ["snippet", "status"],
-    notifySubscribers: false,
-    requestBody,
-    media: {
-      body: fs.createReadStream(filePath),
-      mimeType: "video/mp4",
-    },
-  });
+  const res = await youtube.videos
+    .insert({
+      part: ["snippet", "status"],
+      requestBody,
+      media: {
+        body: fs.createReadStream(filePath),
+        mimeType: "video/mp4",
+      },
+    })
+    .catch(async (err: any) => {
+      // If privacyStatus "public" fails, retry with "unlisted"
+      if (
+        requestBody.status?.privacyStatus === "public" &&
+        err?.status === 400
+      ) {
+        console.warn(
+          "[YouTube] Public upload failed (channel may not be verified), retrying as unlisted...",
+        );
+        requestBody.status.privacyStatus = "unlisted";
+        const retryRes = await youtube.videos.insert({
+          part: ["snippet", "status"],
+          requestBody,
+          media: {
+            body: fs.createReadStream(filePath),
+            mimeType: "video/mp4",
+          },
+        });
+        return retryRes;
+      }
+      throw err;
+    });
 
   const videoId = res.data.id!;
   return {

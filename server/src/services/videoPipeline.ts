@@ -600,6 +600,16 @@ export const runVideoPipeline = async (
                       ytErr?.message || "Unknown error during auto-upload",
                     type: "failure",
                     jobId: recordId,
+                    fields: [
+                      {
+                        name: "Error Details",
+                        value:
+                          ytErr?.response?.data?.error?.message ||
+                          ytErr?.errors?.[0]?.message ||
+                          "No additional details",
+                        inline: false,
+                      },
+                    ],
                   }).catch(() => {});
                 } catch {}
               }
