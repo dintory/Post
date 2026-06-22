@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSupabaseClient } from "../config/supabase";
+import { getSupabaseClient, getServiceRoleClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
 import {
   getUserWebhookUrl,
@@ -32,7 +32,7 @@ async function handleCheck(req: any, res: any) {
   }
 
   try {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceRoleClient();
     const now = new Date();
     const currentDay = now.getUTCDay();
     const currentMonthDay = now.getUTCDate();
