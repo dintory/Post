@@ -143,42 +143,61 @@ export const generateScript = async (
     content: interpolate(msg.content, vars),
   }));
 
-  console.log(
-    `[ScriptGen] Generating ${input.format} script for "${input.title}" via OpenRouter`,
-  );
+  // Primary model from the prompt template, plus fallbacks in order
+  const models = [
+    template.model,
+    "gpt-oss-120b:free",
+    "nex-agi/nex-n2-pro:free",
+    "poolside/laguna-m.1:free",
+  ];
 
-  const response = await chatCompletion({
-    model: template.model,
-    messages,
-    temperature: template.parameters.temperature,
-    max_tokens: template.parameters.max_tokens,
-  });
+  let lastError: Error | null = null;
+  for (const model of models) {
+    try {
+      console.log(`[ScriptGen] Trying model: ${model}`);
 
-  if (!response.choices || response.choices.length === 0) {
-    console.error(
-      "[ScriptGen] OpenRouter returned no choices:",
-      JSON.stringify(response).slice(0, 1000),
-    );
-    throw new Error(
-      "OpenRouter returned an empty response — no choices available",
-    );
+      const response = await chatCompletion({
+        model,
+        messages,
+        temperature: template.parameters.temperature,
+        max_tokens: template.parameters.max_tokens,
+      });
+
+      if (!response.choices || response.choices.length === 0) {
+        console.error(
+          `[ScriptGen] Model ${model} returned no choices:`,
+          JSON.stringify(response).slice(0, 1000),
+        );
+        lastError = new Error(
+          `Model ${model} returned an empty response — no choices available`,
+        );
+        continue;
+      }
+
+      const rawContent = response.choices[0]?.message?.content;
+      const content =
+        typeof rawContent === "string"
+          ? rawContent
+          : rawContent?.find((p) => p.type === "text")?.text;
+
+      if (!content) {
+        lastError = new Error(`Model ${model} returned an empty response`);
+        continue;
+      }
+
+      const script = parseScriptJson(content);
+
+      console.log(
+        `[ScriptGen] Model ${model} generated ${script.sections?.length ?? 0} sections (~${script.totalEstimatedDuration})`,
+      );
+
+      return { script, raw: content, model };
+    } catch (err: any) {
+      console.warn(`[ScriptGen] Model ${model} failed: ${err.message}`);
+      lastError = err;
+      continue;
+    }
   }
 
-  const rawContent = response.choices[0]?.message?.content;
-  const content =
-    typeof rawContent === "string"
-      ? rawContent
-      : rawContent?.find((p) => p.type === "text")?.text;
-
-  if (!content) {
-    throw new Error("OpenRouter returned an empty response");
-  }
-
-  const script = parseScriptJson(content);
-
-  console.log(
-    `[ScriptGen] Generated ${script.sections?.length ?? 0} sections (~${script.totalEstimatedDuration})`,
-  );
-
-  return { script, raw: content, model: template.model };
+  throw lastError || new Error("All OpenRouter models failed");
 };
