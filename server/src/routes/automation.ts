@@ -22,6 +22,9 @@ router.post("/check", handleCheck);
 
 async function handleCheck(req: any, res: any) {
   const secret = req.headers["x-automation-secret"] || req.query.secret;
+  console.log(
+    `[Automation] Check triggered at ${new Date().toISOString()}, secret present: ${!!secret}`,
+  );
   if (!secret || secret !== process.env.AUTOMATION_SECRET) {
     return res
       .status(401)
@@ -152,8 +155,7 @@ async function handleCheck(req: any, res: any) {
               .eq("user_id", schedule.user_id)
               .maybeSingle();
 
-            userAutoUpload =
-              userSettings?.video_settings?.autoUpload === true;
+            userAutoUpload = userSettings?.video_settings?.autoUpload !== false;
 
             const effects = userSettings?.video_settings?.effects;
             if (effects) {
