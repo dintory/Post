@@ -238,11 +238,11 @@ export function generateRedditCardSvg(
   const ui = cardWidth / 560;
   const cardY = config.cardY ?? 54;
 
-  const pad = 14 * ui;
+  const pad = 16 * ui;
   const cardRadius = 8 * ui;
   const avatarSize = 32 * ui;
   const headerGap = 8 * ui;
-  const headerMarginBottom = 14 * ui;
+  const headerMarginBottom = 6 * ui;
   const titleMarginBottom = 8 * ui;
   const actionsMarginTop = 6 * ui;
   const actionsGap = 8 * ui;
