@@ -49,24 +49,41 @@ async function handleCheck(req: any, res: any) {
     let triggered = 0;
     const notifiedUsers = new Map<string, string[]>();
 
+    // Fire window: how many minutes after the scheduled time we're still
+    // willing to fire. A generous window (2h) ensures schedules still fire
+    // even if the cron heartbeat missed pings around the exact scheduled
+    // minute (server sleep, network latency, etc.).
+    const FIRE_WINDOW_MIN = 120;
+
+    // Per-type cooldowns (ms) — prevents double-fire if the cron pings
+    // multiple times within the fire window. Set slightly shorter than the
+    // natural period so the schedule can fire again next cycle.
+    const COOLDOWN_MS: Record<string, number> = {
+      daily: 23 * 60 * 60 * 1000, // 23h
+      weekly: (7 * 24 - 1) * 60 * 60 * 1000, // 6d 23h
+      monthly: 27 * 24 * 60 * 60 * 1000, // 27d
+    };
+
     for (const schedule of schedules || []) {
       const type = schedule.schedule_type || "weekly";
       let shouldFire = false;
 
       if (type === "weekly") {
-        // Match day of week + time within ±5 min
         if (schedule.day_of_week !== currentDay) continue;
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
-        const diff = Math.abs(currentMinutes - scheduledMinutes);
-        if (diff > 5) continue;
+        // Minutes since the scheduled time today (handles midnight wraparound)
+        let sinceScheduled = currentMinutes - scheduledMinutes;
+        if (sinceScheduled < 0) sinceScheduled += 24 * 60;
+        // Only fire within the fire window (0..FIRE_WINDOW_MIN after scheduled time)
+        if (sinceScheduled > FIRE_WINDOW_MIN) continue;
         shouldFire = true;
       } else if (type === "daily") {
-        // Match time within ±5 min every day
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
-        const diff = Math.abs(currentMinutes - scheduledMinutes);
-        if (diff > 5) continue;
+        let sinceScheduled = currentMinutes - scheduledMinutes;
+        if (sinceScheduled < 0) sinceScheduled += 24 * 60;
+        if (sinceScheduled > FIRE_WINDOW_MIN) continue;
         shouldFire = true;
       } else if (type === "interval") {
         // Every N hours from last run
@@ -82,21 +99,22 @@ async function handleCheck(req: any, res: any) {
           }
         }
       } else if (type === "monthly") {
-        // Match specific day of month + time within ±5 min
         if (schedule.month_day !== currentMonthDay) continue;
         const [h, m] = (schedule.time_utc || "00:00").split(":").map(Number);
         const scheduledMinutes = h * 60 + m;
-        const diff = Math.abs(currentMinutes - scheduledMinutes);
-        if (diff > 5) continue;
+        let sinceScheduled = currentMinutes - scheduledMinutes;
+        if (sinceScheduled < 0) sinceScheduled += 24 * 60;
+        if (sinceScheduled > FIRE_WINDOW_MIN) continue;
         shouldFire = true;
       }
 
       if (!shouldFire) continue;
 
-      // Prevent double-fire within the last 20 hours (for non-interval types)
+      // Per-type cooldown to prevent double-fire within the same cycle
       if (type !== "interval" && schedule.last_run_at) {
         const lastRun = new Date(schedule.last_run_at).getTime();
-        if (now.getTime() - lastRun < 20 * 60 * 60 * 1000) continue;
+        const cooldown = COOLDOWN_MS[type] ?? 20 * 60 * 60 * 1000;
+        if (now.getTime() - lastRun < cooldown) continue;
       }
 
       await supabase
@@ -123,31 +141,19 @@ async function handleCheck(req: any, res: any) {
             ? `${schedule.label} #${Math.floor(Date.now() / 1000)}`
             : `Automated Video #${Math.floor(Date.now() / 1000)}`;
 
-          // Fetch the user's YouTube refresh token for auto-upload
-          let ytRefreshToken: string | null = null;
-          try {
-            const { data: ytAccount } = await supabase
-              .from("youtube_accounts")
-              .select("refresh_token")
-              .eq("user_id", schedule.user_id)
-              .not("refresh_token", "is", null)
-              .maybeSingle();
-            ytRefreshToken = ytAccount?.refresh_token || null;
-          } catch {
-            console.warn(
-              `[Automation] Could not fetch YouTube token for user ${schedule.user_id}`,
-            );
-          }
-
-          // Fetch user's saved effects settings for the reddit card config
+          // Fetch user's saved effects settings + autoUpload preference
           let effectsRedditConfig: any = {};
           let effectsCapture: any = {};
+          let userAutoUpload = false;
           try {
             const { data: userSettings } = await supabase
               .from("user_usage")
               .select("video_settings")
               .eq("user_id", schedule.user_id)
               .maybeSingle();
+
+            userAutoUpload =
+              userSettings?.video_settings?.autoUpload === true;
 
             const effects = userSettings?.video_settings?.effects;
             if (effects) {
@@ -192,6 +198,24 @@ async function handleCheck(req: any, res: any) {
             );
           }
 
+          // Only fetch YouTube token if auto-upload is enabled
+          let ytRefreshToken: string | null = null;
+          if (userAutoUpload) {
+            try {
+              const { data: ytAccount } = await supabase
+                .from("youtube_accounts")
+                .select("refresh_token")
+                .eq("user_id", schedule.user_id)
+                .not("refresh_token", "is", null)
+                .maybeSingle();
+              ytRefreshToken = ytAccount?.refresh_token || null;
+            } catch {
+              console.warn(
+                `[Automation] Could not fetch YouTube token for user ${schedule.user_id}`,
+              );
+            }
+          }
+
           await runVideoPipeline({
             userId: schedule.user_id,
             title: autoTitle,
@@ -208,7 +232,7 @@ async function handleCheck(req: any, res: any) {
             captionExit: effectsCapture.captionExit,
             cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,
             token: serviceRoleKey,
-            autoUpload: true,
+            autoUpload: userAutoUpload,
             refreshToken: ytRefreshToken || undefined,
           });
           console.log(

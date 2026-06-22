@@ -9,6 +9,8 @@ import {
   Check,
   AlertCircle,
   Save,
+  AlertTriangle,
+  Youtube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,6 +117,7 @@ export function Settings() {
     language: "English",
     allowComments: true,
     description: "",
+    autoUpload: false,
   });
 
   // General/Security
@@ -412,6 +415,61 @@ export function Settings() {
                             <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                           </label>
                         </div>
+
+                        {/* Auto-upload to YouTube */}
+                        <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
+                          <div>
+                            <p className="text-sm font-medium text-white flex items-center gap-2">
+                              <Youtube className="w-4 h-4 text-rose-500" />
+                              Auto-upload to YouTube
+                            </p>
+                            <p className="text-xs text-zinc-400">
+                              Automatically publish videos to your connected
+                              channel after generation
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={videoSettings.autoUpload}
+                              onChange={(e) =>
+                                setVideoSettings((prev) => ({
+                                  ...prev,
+                                  autoUpload: e.target.checked,
+                                }))
+                              }
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                          </label>
+                        </div>
+
+                        {/* Phone number verification warning */}
+                        {videoSettings.autoUpload && (
+                          <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-200/90 space-y-1">
+                              <p className="font-semibold text-amber-300">
+                                Phone verification required
+                              </p>
+                              <p>
+                                Your YouTube channel must have a verified phone
+                                number to upload videos. Without it, uploads will
+                                fail silently. Add a phone number in{" "}
+                                <a
+                                  href="https://www.youtube.com/account_verification"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline text-amber-300 hover:text-amber-200"
+                                >
+                                  YouTube Settings
+                                </a>
+                                .
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         <Button onClick={saveVideoSettings}>
                           <Save className="w-4 h-4 mr-2" /> Save Video Settings
                         </Button>

@@ -16,6 +16,7 @@ import {
 import { listTemplates } from "../services/templateService";
 import { listBackgrounds } from "../services/backgroundService";
 import { supabase, getSupabaseClient } from "../config/supabase";
+import { getRefreshToken } from "../services/youtubeService";
 import type { VideoFormat } from "../types/video";
 import {
   getCardLayoutFromPercent,
@@ -236,6 +237,22 @@ router.post("/process", requireAuth, async (req: any, res) => {
       req.body.effects || (await fetchEffectsFromDb(req)) || {};
     let effectsRedditConfig = { ...(redditConfig || {}) };
 
+    // ── Auto-upload: per-request override or user's saved setting ──────────
+    let autoUpload = req.body.autoUpload === true;
+    let ytRefreshToken: string | undefined;
+    if (autoUpload || effectsCapture.autoUpload === true) {
+      autoUpload = true;
+      try {
+        const token = await getRefreshToken(
+          getSupabaseClient(req.token),
+          req.user.id,
+        );
+        ytRefreshToken = token || undefined;
+      } catch (tokenErr) {
+        console.warn("[Video] Could not fetch YouTube token:", tokenErr);
+      }
+    }
+
     console.log(
       "[DEBUG:VIDEO] Effects from request:",
       JSON.stringify(effectsCapture, null, 2),
@@ -243,6 +260,12 @@ router.post("/process", requireAuth, async (req: any, res) => {
     console.log(
       "[DEBUG:VIDEO] Initial redditConfig from body:",
       JSON.stringify(redditConfig, null, 2),
+    );
+    console.log(
+      "[DEBUG:VIDEO] autoUpload:",
+      autoUpload,
+      "hasToken:",
+      !!ytRefreshToken,
     );
 
     // Inject PFP avatar URL
@@ -350,6 +373,8 @@ router.post("/process", requireAuth, async (req: any, res) => {
       captionExit: effectsCapture.captionExit,
       cardWidthPercent: effectsCapture.cardWidthPercent ?? 52,
       token: req.token,
+      autoUpload,
+      refreshToken: ytRefreshToken,
     });
 
     return res.status(202).json({

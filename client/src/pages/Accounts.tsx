@@ -18,6 +18,7 @@ import {
   X,
   ExternalLink,
   Clock4,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -556,6 +557,29 @@ export function Accounts() {
                       <li>Grant upload permissions to your channel</li>
                       <li>Your account will be linked automatically</li>
                     </ul>
+                  </div>
+
+                  {/* Phone verification warning */}
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-200/90 space-y-1">
+                      <p className="font-semibold text-amber-300">
+                        Phone number required for uploads
+                      </p>
+                      <p>
+                        To upload videos, your YouTube channel must have a
+                        verified phone number. Add one in{" "}
+                        <a
+                          href="https://www.youtube.com/account_verification"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-amber-300 hover:text-amber-200"
+                        >
+                          YouTube Settings
+                        </a>{" "}
+                        before enabling auto-upload.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

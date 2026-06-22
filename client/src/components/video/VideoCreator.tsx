@@ -8,6 +8,8 @@ import {
   Wand2,
   Download,
   Play,
+  Youtube,
+  AlertTriangle,
 } from "lucide-react";
 import type { RedditCardConfig } from "../../templates/reddit";
 
@@ -165,6 +167,32 @@ export function VideoCreator({
   const [subtitleStyle] = useState("minimal");
   const [pacing, setPacing] = useState("normal");
   const [aiModel] = useState("standard");
+
+  // Auto-upload to YouTube (per-video, defaults from user settings)
+  const [autoUpload, setAutoUpload] = useState(false);
+  const [hasYoutubeAccount, setHasYoutubeAccount] = useState(false);
+
+  // Load default autoUpload setting + YouTube connection status on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const [settingsRes, ytRes] = await Promise.all([
+          fetch("/api/settings", { credentials: "include" }),
+          fetch("/api/youtube/status", { credentials: "include" }),
+        ]);
+        if (settingsRes.ok) {
+          const { settings } = await settingsRes.json();
+          if (settings?.video_settings?.autoUpload) {
+            setAutoUpload(true);
+          }
+        }
+        if (ytRes.ok) {
+          const ytData = await ytRes.json();
+          setHasYoutubeAccount(ytData.connected === true);
+        }
+      } catch {}
+    })();
+  }, []);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const [draggingThumb, setDraggingThumb] = useState<"min" | "max" | null>(
@@ -937,6 +965,50 @@ export function VideoCreator({
                 </p>
               )}
             </div>
+
+            {/* Auto-upload toggle */}
+            <div className="text-left bg-[#1A1A1A] rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#E8E8E8] flex items-center gap-2">
+                    <Youtube className="w-4 h-4 text-rose-500" />
+                    Auto-upload to YouTube
+                  </p>
+                  <p className="text-xs text-[#505050] mt-0.5">
+                    {hasYoutubeAccount
+                      ? "Upload to your channel after generation"
+                      : "No YouTube account connected — go to Accounts"}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoUpload}
+                    onChange={(e) => setAutoUpload(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-[#262626] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10b981]"></div>
+                </label>
+              </div>
+              {autoUpload && (
+                <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-200/90">
+                    Your YouTube channel must have a verified phone number to
+                    upload videos.{" "}
+                    <a
+                      href="https://www.youtube.com/account_verification"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-amber-300 hover:text-amber-200"
+                    >
+                      Verify here
+                    </a>
+                  </p>
+                </div>
+              )}
+            </div>
+
             {submitError && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs text-left">
                 {submitError}
@@ -1072,6 +1144,7 @@ export function VideoCreator({
           script: generatedScript,
           redditConfig: redditConfig || undefined,
           effects: savedEffects,
+          autoUpload,
         }),
       });
       const data = await response.json();

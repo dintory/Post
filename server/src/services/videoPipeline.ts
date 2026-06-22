@@ -538,6 +538,23 @@ export const runVideoPipeline = async (
             }
 
             // ── 6b. Auto-upload to YouTube if requested ──────────────────
+            if (autoUpload && !ytRefreshToken) {
+              console.warn(
+                `[Pipeline] Auto-upload enabled but no YouTube token for user ${userId} — skipping upload`,
+              );
+              try {
+                const { getUserWebhookUrl, sendDiscordAlert } =
+                  await import("./discordWebhook");
+                const webhookUrl = await getUserWebhookUrl(db, userId);
+                await sendDiscordAlert(webhookUrl, {
+                  title: `Auto-upload skipped: ${title}`,
+                  message:
+                    "Auto-upload to YouTube is enabled but no YouTube account is connected. Go to Accounts to connect your channel.",
+                  type: "warning",
+                  jobId: recordId,
+                });
+              } catch {}
+            }
             if (autoUpload && ytRefreshToken && fs.existsSync(finalPath)) {
               try {
                 const { uploadVideo, CATEGORY_MAP } =
