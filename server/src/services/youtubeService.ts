@@ -278,8 +278,13 @@ export const uploadVideo = async (
     requestBody.snippet.categoryId = options.categoryId;
   }
 
-  // Set default language
-  if (options?.defaultLanguage) {
+  // Set default language — only if it looks like a valid language code
+  // (ISO 639-1 two-letter or locale like en-US). Display names like
+  // "English" are rejected by the YouTube API.
+  if (
+    options?.defaultLanguage &&
+    /^[a-z]{2}(-[A-Z]{2})?$/.test(options.defaultLanguage)
+  ) {
     requestBody.snippet.defaultLanguage = options.defaultLanguage;
   }
 

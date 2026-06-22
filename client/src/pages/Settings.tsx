@@ -454,8 +454,8 @@ export function Settings() {
                               </p>
                               <p>
                                 Your YouTube channel must have a verified phone
-                                number to upload videos. Without it, uploads will
-                                fail silently. Add a phone number in{" "}
+                                number to upload videos. Without it, uploads
+                                will fail silently. Add a phone number in{" "}
                                 <a
                                   href="https://www.youtube.com/account_verification"
                                   target="_blank"
