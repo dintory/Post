@@ -211,6 +211,27 @@ export const runVideoPipeline = async (
           const resolvedRedditConfig = redditConfig
             ? resolveRedditCardConfig(redditConfig)
             : resolveRedditCardConfig(buildRedditCardConfig(script));
+          // When redditConfig came from effects settings (automation), the
+          // generated script's story fields (title, subreddit, etc.) aren't
+          // included. Merge them in without overwriting effect/layout fields.
+          if (script && redditConfig) {
+            const scriptConfig = buildRedditCardConfig(script);
+            // Only copy story fields — preserve effect/layout fields below
+            if (scriptConfig.subreddit)
+              resolvedRedditConfig.subreddit = scriptConfig.subreddit;
+            if (scriptConfig.postTitle)
+              resolvedRedditConfig.postTitle = scriptConfig.postTitle;
+            if (scriptConfig.postBody)
+              resolvedRedditConfig.postBody = scriptConfig.postBody;
+            if (scriptConfig.username)
+              resolvedRedditConfig.username = scriptConfig.username;
+            if (scriptConfig.timeAgo)
+              resolvedRedditConfig.timeAgo = scriptConfig.timeAgo;
+            if (scriptConfig.upvotes != null)
+              resolvedRedditConfig.upvotes = scriptConfig.upvotes;
+            if (scriptConfig.comments != null)
+              resolvedRedditConfig.comments = scriptConfig.comments;
+          }
           // Inject card width from user effects
           if (cardWidthPercent != null) {
             resolvedRedditConfig.cardWidthPercent = cardWidthPercent;
