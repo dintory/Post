@@ -587,15 +587,27 @@ export const runVideoPipeline = async (
                   }
                 }
 
+                // Use the generated script title (actual story title) instead
+                // of the automation-generated title for YouTube upload.
+                const ytTitle = script?.title || title;
+
+                // Replace {title} in description with the actual story title
+                if (uploadOptions.description) {
+                  uploadOptions.description = uploadOptions.description.replace(
+                    /{title}/g,
+                    ytTitle,
+                  );
+                }
+
                 const finalDesc =
-                  uploadOptions.description || description || title;
+                  uploadOptions.description || description || ytTitle;
 
                 console.log(
-                  `[Pipeline] Auto-uploading "${title}" to YouTube...`,
+                  `[Pipeline] Auto-uploading "${ytTitle}" to YouTube...`,
                 );
                 const result = await uploadVideo(
                   finalPath,
-                  title,
+                  ytTitle,
                   finalDesc,
                   ytRefreshToken,
                   uploadOptions,
@@ -610,7 +622,7 @@ export const runVideoPipeline = async (
 
                 const webhookUrl = await getUserWebhookUrl(supabase, userId);
                 await sendDiscordAlert(webhookUrl, {
-                  title: `✅ Published: ${title}`,
+                  title: `✅ Published: ${ytTitle}`,
                   message: `**Video successfully posted — Public**\n${result.videoUrl}`,
                   type: "success",
                   jobId: recordId,
