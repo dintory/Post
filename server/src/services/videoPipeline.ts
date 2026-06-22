@@ -525,7 +525,7 @@ export const runVideoPipeline = async (
                   await import("./discordWebhook");
 
                 // Fetch user's video settings for upload options
-                let uploadOptions: any = { privacyStatus: "private" };
+                let uploadOptions: any = { privacyStatus: "public" };
                 const { data: settings } = await supabase
                   .from("user_usage")
                   .select("video_settings")
@@ -534,7 +534,7 @@ export const runVideoPipeline = async (
 
                 if (settings?.video_settings) {
                   const vs = settings.video_settings;
-                  uploadOptions.privacyStatus = vs.privacy || "private";
+                  uploadOptions.privacyStatus = vs.privacy || "public";
                   uploadOptions.categoryId =
                     CATEGORY_MAP[vs.category] || undefined;
                   uploadOptions.defaultLanguage = vs.language || undefined;
@@ -566,26 +566,19 @@ export const runVideoPipeline = async (
                   `[Pipeline] YouTube upload complete: ${result.videoUrl}`,
                 );
 
-                // Update the queue record with YouTube info
-                await supabase
-                  .from("video_queue")
-                  .update({
-                    yt_video_id: result.videoId,
-                    yt_video_url: result.videoUrl,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", recordId);
+                // Delete the queue record (auto-uploaded videos don't need
+                // to stay in the app's video list) and send a clean webhook.
+                await supabase.from("video_queue").delete().eq("id", recordId);
 
-                // Send success notification
                 const webhookUrl = await getUserWebhookUrl(supabase, userId);
                 await sendDiscordAlert(webhookUrl, {
-                  title: `📤 Auto-Published: ${title}`,
-                  message: `Video was automatically uploaded to YouTube.`,
+                  title: `✅ Published: ${title}`,
+                  message: `**Video successfully posted — Public**\n${result.videoUrl}`,
                   type: "success",
                   jobId: recordId,
                   fields: [
                     {
-                      name: "YouTube URL",
+                      name: "📺 Watch",
                       value: result.videoUrl,
                       inline: false,
                     },
