@@ -514,7 +514,7 @@ export const runVideoPipeline = async (
               await extractFirstFrame(finalPath, thumbnailPath);
               if (fs.existsSync(thumbnailPath)) {
                 const thumbBuffer = fs.readFileSync(thumbnailPath);
-                const thumbFileName = `${userId}-${recordId}-thumb.jpg`;
+                const thumbFileName = `thumbnails/${recordId}.jpg`;
                 console.log(
                   `[Pipeline] Uploading thumbnail to R2: ${thumbFileName}`,
                 );

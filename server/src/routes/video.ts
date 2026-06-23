@@ -565,21 +565,36 @@ router.delete("/queue/:id", requireAuth, async (req: any, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    // Delete from R2 if it is a public URL
+    // Delete video file from R2
     if (
       job.r2_url &&
       (job.r2_url.startsWith("http://") || job.r2_url.startsWith("https://"))
     ) {
       try {
         const { deleteFromR2 } = await import("../utils/r2");
-        const urlParts = job.r2_url.split("/");
-        const key = urlParts[urlParts.length - 1];
+        const parsed = new URL(job.r2_url);
+        const key = parsed.pathname.replace(/^\//, "");
         if (key) {
-          console.log(`[Route] Deleting file from R2 with key: ${key}`);
+          console.log(`[Route] Deleting video from R2: ${key}`);
           await deleteFromR2(key);
         }
       } catch (r2Err) {
-        console.error("[Route] Failed to delete file from R2:", r2Err);
+        console.error("[Route] Failed to delete video from R2:", r2Err);
+      }
+    }
+
+    // Delete thumbnail from R2
+    if (job.thumbnail_url && job.thumbnail_url.startsWith("http")) {
+      try {
+        const { deleteFromR2 } = await import("../utils/r2");
+        const parsed = new URL(job.thumbnail_url);
+        const key = parsed.pathname.replace(/^\//, "");
+        if (key) {
+          console.log(`[Route] Deleting thumbnail from R2: ${key}`);
+          await deleteFromR2(key);
+        }
+      } catch (r2Err) {
+        console.error("[Route] Failed to delete thumbnail from R2:", r2Err);
       }
     }
 

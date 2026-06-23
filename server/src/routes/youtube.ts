@@ -11,6 +11,7 @@ import {
   saveRefreshToken,
   fetchChannelInfo,
   uploadVideo,
+  setVideoThumbnail,
   downloadFromUrl,
   verifyToken,
   CATEGORY_MAP,
@@ -306,7 +307,24 @@ router.post("/api/youtube/upload", requireAuth, async (req: any, res) => {
     );
     console.log(`[YouTube] Upload complete: ${result.videoUrl}`);
 
-    // 6. Update the queue record
+    // 6. Set custom thumbnail on the YouTube video
+    if (job.thumbnail_url && job.thumbnail_url.startsWith("http")) {
+      try {
+        const thumbRes = await fetch(job.thumbnail_url);
+        if (thumbRes.ok) {
+          const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
+          const tempThumb = path.join(tempDir, `${jobId}_thumb.jpg`);
+          fs.writeFileSync(tempThumb, thumbBuffer);
+          await setVideoThumbnail(result.videoId, tempThumb, refreshToken);
+          fs.unlinkSync(tempThumb);
+          console.log(`[YouTube] Thumbnail set for video ${result.videoId}`);
+        }
+      } catch (thumbErr) {
+        console.warn("[YouTube] Could not set custom thumbnail:", thumbErr);
+      }
+    }
+
+    // 7. Update the queue record
     await supabase
       .from("video_queue")
       .update({
@@ -316,7 +334,7 @@ router.post("/api/youtube/upload", requireAuth, async (req: any, res) => {
       })
       .eq("id", jobId);
 
-    // 7. Send Discord success notification
+    // 8. Send Discord success notification
     try {
       const webhookUrl = await getUserWebhookUrl(supabase, req.user.id);
       await sendDiscordAlert(webhookUrl, {

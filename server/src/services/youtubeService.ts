@@ -328,6 +328,27 @@ export const uploadVideo = async (
 };
 
 /**
+ * Set a custom thumbnail image on an already-uploaded YouTube video.
+ */
+export const setVideoThumbnail = async (
+  videoId: string,
+  imagePath: string,
+  refreshToken: string,
+): Promise<void> => {
+  oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+  const youtube = google.youtube({ version: "v3", auth: oauth2Client });
+
+  await youtube.thumbnails.set({
+    videoId,
+    media: {
+      body: fs.createReadStream(imagePath),
+      mimeType: "image/jpeg",
+    },
+  });
+};
+
+/**
  * Download a file from a public URL to a local temp path.
  */
 export const downloadFromUrl = async (
