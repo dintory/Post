@@ -451,7 +451,7 @@ router.post("/schedules", requireAuth, async (req: any, res) => {
       fields.month_day = null;
     } else if (type === "interval") {
       fields.day_of_week = 0;
-      fields.time_utc = null;
+      fields.time_utc = "00:00";
       fields.interval_hours = interval_hours;
       fields.month_day = null;
     } else if (type === "monthly") {
