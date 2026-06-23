@@ -2,7 +2,7 @@ services:
   - type: web
     name: post-backend
     runtime: node
-    buildCommand: apt-get install -y ffmpeg && npm install && npm run build
+    buildCommand: apt-get install -y ffmpeg fonts-liberation && npm install && npm run build
     startCommand: node dist/index.js
     envVars:
       - key: NODE_ENV

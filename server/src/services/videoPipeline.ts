@@ -376,8 +376,7 @@ export const runVideoPipeline = async (
               ``,
               `[V4+ Styles]`,
               `Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding`,
-              `Style: Default,Arial,${baseFontSize},${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
-              ``,
+              `Style: Default,sans-serif,${baseFontSize},${textColor},&H000000FF,${outlineColor},&H00000000,-1,0,0,0,100,100,0,0,1,${outlineThickness},0,${assAlignment},0,0,0,1`,
               `[Events]`,
               `Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`,
             ];
@@ -796,7 +795,8 @@ export const runVideoPipeline = async (
         .update({
           status: "failed",
           r2_url: null,
-          error_message: pipelineError.message ?? "Unknown error",
+          error_message:
+            pipelineError.stderr ?? pipelineError.message ?? "Unknown error",
           updated_at: new Date().toISOString(),
         })
         .eq("id", recordId);
@@ -808,7 +808,8 @@ export const runVideoPipeline = async (
         const webhookUrl = await getUserWebhookUrl(db, userId);
         await sendDiscordAlert(webhookUrl, {
           title: `Pipeline Failed: ${title}`,
-          message: pipelineError.message ?? "Unknown error",
+          message:
+            pipelineError.stderr ?? pipelineError.message ?? "Unknown error",
           type: "failure",
           stage:
             format === "reddit_story"
@@ -818,7 +819,7 @@ export const runVideoPipeline = async (
           fields: [
             {
               name: "Error",
-              value: `\`\`\`${(pipelineError.message ?? "Unknown error").slice(0, 1000)}\`\`\``,
+              value: `\`\`\`${(pipelineError.stderr ?? pipelineError.message ?? "Unknown error").slice(0, 2000)}\`\`\``,
               inline: false,
             },
           ],

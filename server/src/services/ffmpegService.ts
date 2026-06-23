@@ -157,7 +157,7 @@ export const mergeAudioVideo = async (
     } else {
       overlayFilter = `[0:v][1:v]overlay=0:0:shortest=1[ov]`;
     }
-    filterComplex = `${overlayFilter};[ov]subtitles='${escapedSub}'[outv]`;
+    filterComplex = `${overlayFilter};[ov]subtitles=${escapedSub}[outv]`;
   } else if (overlayPath) {
     if (overlayDuration && overlayDuration > 0) {
       filterComplex = `[0:v][1:v]overlay=0:0:enable='lte(t,${overlayDuration.toFixed(3)})'[outv]`;
@@ -166,7 +166,7 @@ export const mergeAudioVideo = async (
     }
   } else if (subtitlePath) {
     const escapedSub = subtitlePath.replace(/\\/g, "/").replace(/:/g, "\\:");
-    filterComplex = `[0:v]subtitles='${escapedSub}'[outv]`;
+    filterComplex = `[0:v]subtitles=${escapedSub}[outv]`;
   } else {
     filterComplex = "";
   }
