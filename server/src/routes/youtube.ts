@@ -109,7 +109,7 @@ router.get("/auth/youtube/callback", async (req: any, res) => {
               window.opener.postMessage({ type: 'youtube-oauth-success' }, '*');
               window.close();
             } else {
-              const appUrl = 'https://post-rtc8.onrender.com';
+              const appUrl = 'https://post-mu-navy.vercel.app';
               setTimeout(function() {
                 window.location.href = appUrl + '/accounts';
               }, 1500);
