@@ -598,32 +598,42 @@ export function Accounts() {
                       Cancel
                     </button>
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         setShowAddDrawer(false);
-                        try {
-                          const token = localStorage.getItem("access_token");
-                          const res = await fetch(
-                            `${API_BASE}/auth/youtube?json=1`,
-                            {
-                              headers: token
-                                ? { Authorization: `Bearer ${token}` }
-                                : {},
-                            },
-                          );
-                          if (!res.ok) {
-                            console.error(
-                              "Failed to get OAuth URL:",
-                              await res.text(),
-                            );
-                            return;
-                          }
-                          const { url } = await res.json();
-                          if (url) {
-                            window.open(url, "_blank");
-                          }
-                        } catch (err) {
-                          console.error("OAuth error:", err);
+                        // Open popup synchronously (before await) to avoid popup blocker
+                        const popup = window.open("", "_blank");
+                        if (!popup) {
+                          console.error("Popup blocked");
+                          return;
                         }
+                        popup.document.write("<p>Loading...</p>");
+                        // Fetch the OAuth URL (runs async, popup is already open)
+                        (async () => {
+                          try {
+                            const token = localStorage.getItem("access_token");
+                            const res = await fetch(
+                              `${API_BASE}/auth/youtube?json=1`,
+                              {
+                                headers: token
+                                  ? { Authorization: `Bearer ${token}` }
+                                  : {},
+                              },
+                            );
+                            if (!res.ok) {
+                              popup.close();
+                              return;
+                            }
+                            const { url } = await res.json();
+                            if (url) {
+                              popup.location.href = url;
+                            } else {
+                              popup.close();
+                            }
+                          } catch (err) {
+                            console.error("OAuth error:", err);
+                            popup.close();
+                          }
+                        })();
                       }}
                       className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[#10b981] text-white hover:bg-[#0ea371] transition-colors"
                     >
