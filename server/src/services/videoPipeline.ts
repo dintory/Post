@@ -661,7 +661,6 @@ export const runVideoPipeline = async (
                       })
                       .eq("user_id", userId)
                       .not("refresh_token", "is", null);
-                    ytRefreshToken = null; // prevent retry this session
                     console.log(
                       `[Pipeline] YouTube token expired — marked account as disconnected for user ${userId}`,
                     );

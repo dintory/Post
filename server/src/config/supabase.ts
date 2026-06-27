@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -9,7 +9,11 @@ const supabaseKey =
   process.env.SUPABASE_ANON_KEY ||
   "sb_publishable_uHaV-A4k6-jpvXNeWtOZBA_vwZQt1dz";
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+});
 
 export const getServiceRoleClient = () => {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,15 +26,10 @@ export const getServiceRoleClient = () => {
     },
   });
 };
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-});
 
 // Cache of authenticated clients keyed by token — prevents creating a new
 // Supabase client per request, which leaks connections over time.
-const authedClients = new Map<string, ReturnType<typeof createClient>>();
+const authedClients = new Map<string, SupabaseClient>();
 const CLIENT_TTL = 1000 * 60 * 15; // 15 minutes
 const clientTimestamps = new Map<string, number>();
 
@@ -50,7 +49,7 @@ if (typeof setInterval !== "undefined") {
   ).unref();
 }
 
-export const getSupabaseClient = (token?: string) => {
+export const getSupabaseClient = (token?: string): SupabaseClient => {
   if (!token) return supabase;
 
   const cached = authedClients.get(token);
