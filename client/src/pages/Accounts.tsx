@@ -598,13 +598,32 @@ export function Accounts() {
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        const token = localStorage.getItem("access_token");
-                        const authUrl = token
-                          ? `${API_BASE}/auth/youtube?token=${encodeURIComponent(token)}`
-                          : `${API_BASE}/auth/youtube`;
-                        window.open(authUrl, "_blank");
+                      onClick={async () => {
                         setShowAddDrawer(false);
+                        try {
+                          const token = localStorage.getItem("access_token");
+                          const res = await fetch(
+                            `${API_BASE}/auth/youtube?json=1`,
+                            {
+                              headers: token
+                                ? { Authorization: `Bearer ${token}` }
+                                : {},
+                            },
+                          );
+                          if (!res.ok) {
+                            console.error(
+                              "Failed to get OAuth URL:",
+                              await res.text(),
+                            );
+                            return;
+                          }
+                          const { url } = await res.json();
+                          if (url) {
+                            window.open(url, "_blank");
+                          }
+                        } catch (err) {
+                          console.error("OAuth error:", err);
+                        }
                       }}
                       className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[#10b981] text-white hover:bg-[#0ea371] transition-colors"
                     >

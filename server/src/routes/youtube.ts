@@ -29,9 +29,14 @@ const router = Router();
  * GET /auth/youtube
  * Redirect the user to Google's OAuth consent page.
  * ?userId=xxx is passed as `state` so the callback can identify who authenticated.
+ * When called with ?json=1, returns the URL as JSON (used by the frontend SPA
+ * which needs to send auth headers via fetch before opening a new window).
  */
 router.get("/auth/youtube", requireAuth, (req: any, res) => {
   const url = getAuthUrl(req.user.id);
+  if (req.query.json === "1") {
+    return res.json({ url });
+  }
   res.redirect(302, url);
 });
 
