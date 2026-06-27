@@ -25,6 +25,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://post-rtc8.onrender.com";
+
 interface YouTubeAccount {
   id: string;
   email: string;
@@ -596,11 +599,11 @@ export function Accounts() {
                     </button>
                     <button
                       onClick={() => {
-                        window.open(
-                          "/auth/youtube",
-                          "_blank",
-                          "noopener,noreferrer",
-                        );
+                        const token = localStorage.getItem("access_token");
+                        const authUrl = token
+                          ? `${API_BASE}/auth/youtube?token=${encodeURIComponent(token)}`
+                          : `${API_BASE}/auth/youtube`;
+                        window.open(authUrl, "_blank");
                         setShowAddDrawer(false);
                       }}
                       className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[#10b981] text-white hover:bg-[#0ea371] transition-colors"
