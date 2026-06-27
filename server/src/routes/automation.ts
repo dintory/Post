@@ -217,6 +217,7 @@ async function handleCheck(req: any, res: any) {
                 .from("youtube_accounts")
                 .select("refresh_token")
                 .eq("user_id", schedule.user_id)
+                .eq("status", "active")
                 .not("refresh_token", "is", null)
                 .maybeSingle();
               ytRefreshToken = ytAccount?.refresh_token || null;
