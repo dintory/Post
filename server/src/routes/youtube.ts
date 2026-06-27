@@ -2,7 +2,7 @@ import fs from "fs";
 import { Router } from "express";
 import path from "path";
 import os from "os";
-import { getSupabaseClient } from "../config/supabase";
+import { getSupabaseClient, getServiceRoleClient } from "../config/supabase";
 import { requireAuth } from "../middleware/requireAuth";
 import {
   getAuthUrl,
@@ -38,9 +38,10 @@ router.get("/auth/youtube", requireAuth, (req: any, res) => {
 /**
  * GET /auth/youtube/callback
  * Handle the OAuth redirect — exchange code for tokens and persist to DB.
- * Uses requireAuth so the Supabase client has the user's auth context for RLS.
+ * No auth middleware needed: the userId comes from the OAuth `state` parameter
+ * that we set when initiating the flow.
  */
-router.get("/auth/youtube/callback", requireAuth, async (req: any, res) => {
+router.get("/auth/youtube/callback", async (req: any, res) => {
   const { code, state: userId } = req.query;
 
   if (!code) {
@@ -58,9 +59,12 @@ router.get("/auth/youtube/callback", requireAuth, async (req: any, res) => {
         );
     }
 
-    // Use the userId from state (set by /auth/youtube) or fall back to the session user
-    const targetUserId = userId || req.user.id;
-    const supabase = getSupabaseClient(req.token);
+    // Use the userId from state (set by /auth/youtube)
+    if (!userId) {
+      return res.status(400).send("Missing user ID in OAuth state.");
+    }
+    const targetUserId = userId as string;
+    const supabase = getServiceRoleClient();
 
     // Save the refresh token first
     await saveRefreshToken(
