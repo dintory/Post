@@ -12,16 +12,11 @@ const execFileAsync = promisify(execFile);
 //   -threads 1        : single thread only (no parallel frame buffers)
 //   -preset ultrafast : minimal memory per frame
 //   -crf 28           : smaller frames = less buffer memory
-//   -max_muxing_queue_size 1024 : prevent unbounded muxing queue growth
 //   -filter_threads 1  : single thread for filter graph
-const THREADS = [
-  "-threads",
-  "1",
-  "-filter_threads",
-  "1",
-  "-max_muxing_queue_size",
-  "1024",
-];
+const THREADS = ["-threads", "1", "-filter_threads", "1"];
+
+// Output options — placed just before the output file, not before inputs
+const OUTPUT_OPTS = ["-max_muxing_queue_size", "1024"];
 
 // ─── Temp Directory ──────────────────────────────────────────────────────────
 
@@ -47,6 +42,7 @@ export const speedUpAudio = async (
     "-filter:a",
     `rubberband=pitch=${pitch},atempo=${speed}`,
     "-y",
+    ...OUTPUT_OPTS,
     outputPath,
   ]);
 };
@@ -123,6 +119,7 @@ export const trimVideoToAudio = async (
     "ultrafast",
     "-an",
     "-y",
+    ...OUTPUT_OPTS,
     outputPath,
   ]);
 
@@ -203,6 +200,7 @@ export const mergeAudioVideo = async (
     "-movflags",
     "+faststart",
     "-y",
+    ...OUTPUT_OPTS,
     outputPath,
   );
 
@@ -226,6 +224,7 @@ export const extractFirstFrame = async (
     "-q:v",
     "2",
     "-y",
+    ...OUTPUT_OPTS,
     outputPath,
   ]);
   console.log(`[FFmpeg] Thumbnail written: ${outputPath}`);
