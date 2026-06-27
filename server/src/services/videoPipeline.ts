@@ -642,27 +642,71 @@ export const runVideoPipeline = async (
                   `[Pipeline] Auto-upload to YouTube failed:`,
                   ytErr,
                 );
+
+                // Detect expired/revoked token and mark account as disconnected
+                const isInvalidGrant =
+                  ytErr?.message?.includes("invalid_grant") ||
+                  ytErr?.response?.data?.error === "invalid_grant" ||
+                  ytErr?.errors?.[0]?.reason === "invalidGrant";
+
+                if (isInvalidGrant && ytRefreshToken) {
+                  try {
+                    // Mark the account as token_expired so we stop retrying
+                    await supabase
+                      .from("youtube_accounts")
+                      .update({
+                        status: "token_expired",
+                        refresh_token: null,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq("user_id", userId)
+                      .not("refresh_token", "is", null);
+                    ytRefreshToken = null; // prevent retry this session
+                    console.log(
+                      `[Pipeline] YouTube token expired — marked account as disconnected for user ${userId}`,
+                    );
+                  } catch (markErr) {
+                    console.error(
+                      "[Pipeline] Could not mark YouTube account as expired:",
+                      markErr,
+                    );
+                  }
+                }
+
                 // Send failure notification but don't fail the pipeline
                 try {
                   const { getUserWebhookUrl, sendDiscordAlert } =
                     await import("./discordWebhook");
                   const webhookUrl = await getUserWebhookUrl(supabase, userId);
+
+                  const errorMsg = isInvalidGrant
+                    ? "Your YouTube connection has expired. Go to Settings → Accounts to re-authenticate. Testing mode tokens expire every 7 days."
+                    : ytErr?.message || "Unknown error during auto-upload";
+
                   await sendDiscordAlert(webhookUrl, {
                     title: `YouTube Upload Failed: ${title}`,
-                    message:
-                      ytErr?.message || "Unknown error during auto-upload",
+                    message: errorMsg,
                     type: "failure",
                     jobId: recordId,
-                    fields: [
-                      {
-                        name: "Error Details",
-                        value:
-                          ytErr?.response?.data?.error?.message ||
-                          ytErr?.errors?.[0]?.message ||
-                          "No additional details",
-                        inline: false,
-                      },
-                    ],
+                    fields: isInvalidGrant
+                      ? [
+                          {
+                            name: "How to fix",
+                            value:
+                              "Go to the app → Accounts → Reconnect YouTube. Tokens in testing mode expire every 7 days.",
+                            inline: false,
+                          },
+                        ]
+                      : [
+                          {
+                            name: "Error Details",
+                            value:
+                              ytErr?.response?.data?.error?.message ||
+                              ytErr?.errors?.[0]?.message ||
+                              "No additional details",
+                            inline: false,
+                          },
+                        ],
                   }).catch(() => {});
                 } catch {}
               }

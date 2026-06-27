@@ -124,6 +124,7 @@ export const getRefreshToken = async (
     .from("youtube_accounts")
     .select("refresh_token")
     .eq("user_id", userId)
+    .eq("status", "active")
     .not("refresh_token", "is", null);
 
   if (accountId) {
