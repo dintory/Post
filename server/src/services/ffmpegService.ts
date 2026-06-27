@@ -9,10 +9,19 @@ const execFileAsync = promisify(execFile);
 // ─── Memory-safe FFmpeg defaults ─────────────────────────────────────────
 // Render free tier has 512MB RAM. FFmpeg with multiple threads can use 300MB+
 // These flags keep peak memory under control:
-//   -threads 1     : single thread only (no parallel frame buffers)
+//   -threads 1        : single thread only (no parallel frame buffers)
 //   -preset ultrafast : minimal memory per frame
-//   -crf 28        : smaller frames = less buffer memory
-const THREADS = ["-threads", "1"];
+//   -crf 28           : smaller frames = less buffer memory
+//   -max_muxing_queue_size 1024 : prevent unbounded muxing queue growth
+//   -filter_threads 1  : single thread for filter graph
+const THREADS = [
+  "-threads",
+  "1",
+  "-filter_threads",
+  "1",
+  "-max_muxing_queue_size",
+  "1024",
+];
 
 // ─── Temp Directory ──────────────────────────────────────────────────────────
 

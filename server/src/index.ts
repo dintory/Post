@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+import sharp from "sharp";
 import authRoutes from "./routes/auth";
 import videoRoutes from "./routes/video";
 import accountRoutes from "./routes/accounts";
@@ -13,6 +14,9 @@ import path from "path";
 import os from "os";
 
 dotenv.config();
+
+// Disable sharp internal cache to prevent memory growth over time
+sharp.cache(false);
 
 // Clean up temp directory on startup (free disk space / memory)
 const tempDir = path.join(os.tmpdir(), "commissioner");

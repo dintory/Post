@@ -22,10 +22,44 @@ export const getServiceRoleClient = () => {
     },
   });
 };
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+});
+
+// Cache of authenticated clients keyed by token — prevents creating a new
+// Supabase client per request, which leaks connections over time.
+const authedClients = new Map<string, ReturnType<typeof createClient>>();
+const CLIENT_TTL = 1000 * 60 * 15; // 15 minutes
+const clientTimestamps = new Map<string, number>();
+
+// Periodic cleanup of stale clients (every 10 minutes)
+if (typeof setInterval !== "undefined") {
+  setInterval(
+    () => {
+      const now = Date.now();
+      for (const [token, ts] of clientTimestamps) {
+        if (now - ts > CLIENT_TTL) {
+          authedClients.delete(token);
+          clientTimestamps.delete(token);
+        }
+      }
+    },
+    1000 * 60 * 10,
+  ).unref();
+}
 
 export const getSupabaseClient = (token?: string) => {
   if (!token) return supabase;
-  return createClient(supabaseUrl, supabaseKey, {
+
+  const cached = authedClients.get(token);
+  if (cached) {
+    clientTimestamps.set(token, Date.now());
+    return cached;
+  }
+
+  const client = createClient(supabaseUrl, supabaseKey, {
     global: {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -35,4 +69,8 @@ export const getSupabaseClient = (token?: string) => {
       persistSession: false,
     },
   });
+
+  authedClients.set(token, client);
+  clientTimestamps.set(token, Date.now());
+  return client;
 };
