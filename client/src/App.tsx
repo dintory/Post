@@ -22,6 +22,8 @@ import { VideoEffects } from "./pages/VideoEffects";
 import { Automation } from "./pages/Automation";
 import { Settings } from "./pages/Settings";
 import { Help } from "./pages/Help";
+import { Privacy } from "./pages/Privacy";
+import { Terms } from "./pages/Terms";
 import { ErrorPage } from "./pages/ErrorPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
@@ -61,9 +63,11 @@ function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const isHome = location.pathname === "/";
   const isLogin = location.pathname === "/login";
+  const isLegal =
+    location.pathname === "/privacy" || location.pathname === "/tos";
   const isErrorPage =
-    !isHome && !isLogin && !validRoutes.includes(location.pathname);
-  const showSidebar = !isHome && !isLogin && !isErrorPage;
+    !isHome && !isLogin && !isLegal && !validRoutes.includes(location.pathname);
+  const showSidebar = !isHome && !isLogin && !isLegal && !isErrorPage;
 
   // Redirect authenticated users away from login/signup
   useEffect(() => {
@@ -72,8 +76,18 @@ function AppContent() {
     }
   }, [isAuthenticated, isLogin, isHome, navigate]);
 
-  // Three layout modes: sidebar (valid routes), header (home/login), clean (error pages)
-  if (isErrorPage) {
+  // Three layout modes: sidebar (valid routes), clean (legal/error), header (home/login)
+  if (isErrorPage || isLegal) {
+    if (isLegal) {
+      return (
+        <div className="min-h-screen bg-zinc-950">
+          <Routes>
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/tos" element={<Terms />} />
+          </Routes>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-zinc-950">
         <ErrorPage />
